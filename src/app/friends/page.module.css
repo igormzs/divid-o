@@ -1,0 +1,245 @@
+.container {
+  padding-bottom: 32px;
+  animation: fadeIn 0.4s ease-out forwards;
+  max-width: 1000px;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 40px;
+}
+
+.title {
+  font-size: 24px;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin-bottom: 4px;
+}
+
+.subtitle {
+  font-size: 14px;
+  color: var(--text-secondary);
+}
+
+.headerActions {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.searchBar {
+  display: flex;
+  align-items: center;
+  background: var(--surface-white);
+  padding: 12px 20px;
+  border-radius: var(--radius-full);
+  gap: 12px;
+  box-shadow: var(--shadow-subtle);
+  border: 1px solid var(--border-light);
+  width: 250px;
+}
+
+.searchBar input {
+  border: none;
+  background: transparent;
+  outline: none;
+  font-size: 14px;
+  font-family: inherit;
+  color: var(--text-primary);
+  width: 100%;
+}
+
+.searchIcon {
+  color: var(--text-secondary);
+  font-size: 16px;
+}
+
+.addFriendBtn {
+  background: var(--color-purple);
+  color: #fff;
+  padding: 12px 24px;
+  border-radius: var(--radius-full);
+  font-weight: 600;
+  font-size: 14px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  transition: opacity 0.2s, transform 0.2s;
+  box-shadow: 0 4px 12px rgba(67, 56, 202, 0.3);
+}
+
+.addFriendBtn:hover {
+  opacity: 0.95;
+  transform: translateY(-2px);
+}
+
+/* Friends List */
+.friendsList {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.friendCard {
+  background: var(--surface-white);
+  border-radius: var(--radius-lg);
+  padding: 24px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  box-shadow: var(--shadow-subtle), var(--shadow-inset);
+  border: 1px solid var(--border-glass);
+  transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.3s ease;
+  backdrop-filter: blur(12px);
+}
+
+.friendCard:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-elevated), var(--shadow-inset);
+}
+
+.friendInfo {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.avatar {
+  width: 56px;
+  height: 56px;
+  background: var(--grad-orange);
+  color: var(--color-orange);
+  border-radius: var(--radius-full);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
+  font-weight: 700;
+  box-shadow: var(--shadow-inset);
+}
+
+.name {
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin-bottom: 4px;
+}
+
+.email {
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+
+.friendStats {
+  display: flex;
+  align-items: center;
+  gap: 32px;
+}
+
+.balanceCol {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+}
+
+.label {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 4px;
+}
+
+.amount {
+  font-size: 16px;
+  font-weight: 700;
+}
+
+.positive {
+  color: var(--color-green);
+}
+
+.negative {
+  color: var(--color-orange);
+}
+
+.neutral {
+  color: var(--text-secondary);
+}
+
+.messageBtn {
+  width: 44px;
+  height: 44px;
+  background: var(--bg-cream);
+  color: var(--text-secondary);
+  border-radius: var(--radius-full);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 20px;
+  transition: all 0.2s;
+  border: 1px solid var(--border-glass);
+}
+
+.messageBtn:hover {
+  background: var(--grad-purple);
+  color: #fff;
+  transform: scale(1.05);
+  box-shadow: var(--shadow-subtle);
+}
+
+/* Responsive Overrides */
+@media (max-width: 768px) {
+  .header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 24px;
+  }
+  
+  .headerActions {
+    width: 100%;
+    justify-content: space-between;
+  }
+  
+  .searchBar {
+    flex: 1;
+  }
+  
+  .friendCard {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 24px;
+  }
+  
+  .friendStats {
+    width: 100%;
+    justify-content: space-between;
+    flex-direction: row-reverse;
+  }
+  
+  .balanceCol {
+    align-items: flex-start;
+  }
+}
+
+@media (max-width: 480px) {
+  .headerActions {
+    flex-direction: column;
+  }
+  
+  .searchBar, .addFriendBtn {
+    width: 100%;
+  }
+  
+  .addFriendBtn {
+    justify-content: center;
+  }
+}
