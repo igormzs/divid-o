@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { createClient } from '@/utils/supabase/client';
 import { toast } from 'sonner';
 import styles from './LoginModal.module.css';
-import { GoogleLogo } from '@phosphor-icons/react';
+import { GoogleLogo, Cube } from '@phosphor-icons/react';
 
 export default function LoginModal() {
   const [isLogin, setIsLogin] = useState(true);
@@ -76,7 +76,9 @@ export default function LoginModal() {
     <div className={styles.overlay}>
       <div className={styles.card}>
         <div className={styles.logo}>
-          <div className={styles.cube}></div>
+          <div className={styles.cube}>
+            <Cube weight="fill" className={styles.cubeIcon} />
+          </div>
           Divid-o
         </div>
         
