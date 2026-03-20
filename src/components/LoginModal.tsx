@@ -51,7 +51,7 @@ export default function LoginModal() {
       if (error) {
         toast.error(error.message);
       } else {
-        toast.success("Account created! You are now logged in.");
+        toast.success("Account created! Check your email to confirm your address.", { duration: 6000 });
       }
       setIsLoading(false);
     }

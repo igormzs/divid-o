@@ -159,18 +159,47 @@ export default function Home() {
     }
   }, [db]);
 
+  // Ensures a public `users` row exists for the authenticated user.
+  // This handles Google OAuth where no trigger creates the row automatically.
+  const ensureUserProfile = useCallback(async (authU: { id: string; email?: string; user_metadata?: Record<string, string> }) => {
+    const meta = authU.user_metadata ?? {};
+    const fullName: string = meta['full_name'] ?? meta['name'] ?? '';
+    const parts = fullName.trim().split(' ');
+    const firstName = parts[0] ?? null;
+    const lastName = parts.slice(1).join(' ') || null;
+
+    const { data, error } = await db
+      .from('users')
+      .upsert({
+        id: authU.id,
+        email: authU.email ?? '',
+        first_name: firstName,
+        last_name: lastName,
+        avatar_url: meta['avatar_url'] ?? meta['picture'] ?? null,
+      }, { onConflict: 'id', ignoreDuplicates: true })
+      .select()
+      .single();
+
+    if (error && error.code !== 'PGRST116') {
+      // If upsert failed (e.g. existing row), fall back to select
+      const { data: existing } = await db
+        .from('users')
+        .select('*')
+        .eq('id', authU.id)
+        .single();
+      return existing;
+    }
+    return data;
+  }, [db]); // eslint-disable-line react-hooks/exhaustive-deps
+
   useEffect(() => {
-    supabase.auth.getSession().then(async ({ data: { session } }) => {
-      if (session?.user) {
-        setAuthUser(session.user);
-        // Fetch public user profile
-        const { data } = await db
-          .from('users')
-          .select('*')
-          .eq('id', session.user.id)
-          .single();
-        setUser(data ?? null);
-        await loadDashboard(session.user.id);
+    // Use getUser() (validates against server) instead of getSession() (trusts local cache)
+    supabase.auth.getUser().then(async ({ data: { user: authU } }) => {
+      if (authU) {
+        setAuthUser(authU);
+        const profile = await ensureUserProfile(authU);
+        setUser(profile ?? null);
+        await loadDashboard(authU.id);
       }
       setIsInitializing(false);
     });
@@ -178,12 +207,8 @@ export default function Home() {
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
       if (session?.user) {
         setAuthUser(session.user);
-        const { data } = await db
-          .from('users')
-          .select('*')
-          .eq('id', session.user.id)
-          .single();
-        setUser(data ?? null);
+        const profile = await ensureUserProfile(session.user);
+        setUser(profile ?? null);
         await loadDashboard(session.user.id);
       } else {
         setAuthUser(null);

@@ -1,10 +1,10 @@
 import { createBrowserClient } from '@supabase/ssr'
-import { createClient as createSupabaseClient } from '@supabase/supabase-js'
 import type { Database } from '@/types/database'
 
 /**
- * Auth-aware Supabase browser client (SSR cookie-based sessions).
- * Use this for auth operations (getSession, onAuthStateChange, etc.)
+ * Auth-aware Supabase browser client.
+ * createBrowserClient is a singleton per URL+key — calling it multiple
+ * times returns the same instance, so there are no duplicate listeners.
  */
 export function createClient() {
   return createBrowserClient<Database>(
@@ -14,20 +14,12 @@ export function createClient() {
 }
 
 /**
- * Typed Supabase client for database operations.
- * @supabase/ssr's createBrowserClient doesn't always forward the Database
- * generic to .from() in v0.9.x — this direct client does.
+ * Alias for createClient — kept for backward compat with pages that import
+ * createTypedClient. Same singleton instance, fully typed and auth-aware.
  */
 export function createTypedClient() {
-  return createSupabaseClient<Database>(
+  return createBrowserClient<Database>(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    {
-      auth: {
-        persistSession: false,
-        autoRefreshToken: false,
-        detectSessionInUrl: false
-      }
-    }
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
   )
 }
