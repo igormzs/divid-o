@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { Receipt, Money, Handshake, MagnifyingGlass } from '@phosphor-icons/react';
 import styles from './page.module.css';
 import { createTypedClient } from '@/utils/supabase/client';
+import { toast } from 'sonner';
 import type { Tables } from '@/types/database';
 import { JSX } from 'react';
 
@@ -50,96 +51,101 @@ export default function ActivityPage() {
 
   const loadActivity = useCallback(async () => {
     setIsLoading(true);
-    const { data: { user } } = await db.auth.getUser();
-    if (!user) { setIsLoading(false); return; }
+    try {
+      const { data: { user } } = await db.auth.getUser();
+      if (!user) return;
 
-    // Get user's group IDs
-    const { data: memberRows } = await db
-      .from('group_members')
-      .select('group_id')
-      .eq('user_id', user.id);
+      // Get user's group IDs
+      const { data: memberRows } = await db
+        .from('group_members')
+        .select('group_id')
+        .eq('user_id', user.id);
 
-    const groupIds = ((memberRows ?? []) as GroupMemberRow[]).map(r => r.group_id);
+      const groupIds = ((memberRows ?? []) as GroupMemberRow[]).map(r => r.group_id);
 
-    if (groupIds.length === 0) {
-      setItems([]);
+      if (groupIds.length === 0) {
+        setItems([]);
+        return;
+      }
+
+      // Fetch expenses with payer info
+      const { data: rawExpenses } = await db
+        .from('expenses')
+        .select('id, group_id, paid_by, description, amount, created_at')
+        .in('group_id', groupIds)
+        .order('created_at', { ascending: false })
+        .limit(30);
+
+      const expenses = (rawExpenses ?? []) as ExpenseRow[];
+
+      // Fetch settlements
+      const { data: rawSettlements } = await db
+        .from('settlements')
+        .select('id, group_id, paid_by, paid_to, amount, status, created_at')
+        .in('group_id', groupIds)
+        .order('created_at', { ascending: false })
+        .limit(20);
+
+      const settlements = (rawSettlements ?? []) as SettlementRow[];
+
+      // Collect all unique user IDs from expenses + settlements
+      const allUserIds = new Set<string>();
+      expenses.forEach(e => allUserIds.add(e.paid_by));
+      settlements.forEach(s => { allUserIds.add(s.paid_by); allUserIds.add(s.paid_to); });
+
+      const { data: rawProfiles } = await db
+        .from('users')
+        .select('id, first_name, last_name')
+        .in('id', [...allUserIds]);
+
+      const profiles = (rawProfiles ?? []) as UserRow[];
+      const userMap: Record<string, UserRow> = Object.fromEntries(profiles.map(p => [p.id, p]));
+
+      const activityItems: ActivityItem[] = [];
+
+      // Map expenses
+      for (const expense of expenses) {
+        const isMe = expense.paid_by === user.id;
+        const payerName = isMe ? 'You' : userName(userMap[expense.paid_by]);
+        activityItems.push({
+          id: `exp-${expense.id}`,
+          type: 'expense',
+          text: `${payerName} added "${expense.description}"`,
+          amount: `$${Number(expense.amount).toFixed(2)}`,
+          time: formatRelativeTime(expense.created_at),
+          icon: <Receipt weight="fill" />,
+          color: 'purple',
+          timestamp: expense.created_at ? new Date(expense.created_at).getTime() : 0,
+        });
+      }
+
+      // Map settlements
+      for (const s of settlements) {
+        const isPayerMe = s.paid_by === user.id;
+        const isPayeeMe = s.paid_to === user.id;
+        const payerName = isPayerMe ? 'You' : userName(userMap[s.paid_by]);
+        const payeeName = isPayeeMe ? 'you' : userName(userMap[s.paid_to]);
+        const icon = s.status === 'completed' ? <Handshake weight="fill" /> : <Money weight="fill" />;
+        activityItems.push({
+          id: `set-${s.id}`,
+          type: s.status === 'completed' ? 'settlement' : 'payment',
+          text: `${payerName} paid ${payeeName}`,
+          amount: `$${Number(s.amount).toFixed(2)}`,
+          time: formatRelativeTime(s.created_at),
+          icon,
+          color: s.status === 'completed' ? 'yellow' : 'green',
+          timestamp: s.created_at ? new Date(s.created_at).getTime() : 0,
+        });
+      }
+
+      activityItems.sort((a, b) => b.timestamp - a.timestamp);
+      setItems(activityItems.slice(0, 30));
+    } catch (err) {
+      console.error('Activity load error:', err);
+      toast.error('Activity Error: ' + (err instanceof Error ? err.message : 'Unknown error'));
+    } finally {
       setIsLoading(false);
-      return;
     }
-
-    // Fetch expenses with payer info
-    const { data: rawExpenses } = await db
-      .from('expenses')
-      .select('id, group_id, paid_by, description, amount, created_at')
-      .in('group_id', groupIds)
-      .order('created_at', { ascending: false })
-      .limit(30);
-
-    const expenses = (rawExpenses ?? []) as ExpenseRow[];
-
-    // Fetch settlements
-    const { data: rawSettlements } = await db
-      .from('settlements')
-      .select('id, group_id, paid_by, paid_to, amount, status, created_at')
-      .in('group_id', groupIds)
-      .order('created_at', { ascending: false })
-      .limit(20);
-
-    const settlements = (rawSettlements ?? []) as SettlementRow[];
-
-    // Collect all unique user IDs from expenses + settlements
-    const allUserIds = new Set<string>();
-    expenses.forEach(e => allUserIds.add(e.paid_by));
-    settlements.forEach(s => { allUserIds.add(s.paid_by); allUserIds.add(s.paid_to); });
-
-    const { data: rawProfiles } = await db
-      .from('users')
-      .select('id, first_name, last_name')
-      .in('id', [...allUserIds]);
-
-    const profiles = (rawProfiles ?? []) as UserRow[];
-    const userMap: Record<string, UserRow> = Object.fromEntries(profiles.map(p => [p.id, p]));
-
-    const activityItems: ActivityItem[] = [];
-
-    // Map expenses
-    for (const expense of expenses) {
-      const isMe = expense.paid_by === user.id;
-      const payerName = isMe ? 'You' : userName(userMap[expense.paid_by]);
-      activityItems.push({
-        id: `exp-${expense.id}`,
-        type: 'expense',
-        text: `${payerName} added "${expense.description}"`,
-        amount: `$${Number(expense.amount).toFixed(2)}`,
-        time: formatRelativeTime(expense.created_at),
-        icon: <Receipt weight="fill" />,
-        color: 'purple',
-        timestamp: expense.created_at ? new Date(expense.created_at).getTime() : 0,
-      });
-    }
-
-    // Map settlements
-    for (const s of settlements) {
-      const isPayerMe = s.paid_by === user.id;
-      const isPayeeMe = s.paid_to === user.id;
-      const payerName = isPayerMe ? 'You' : userName(userMap[s.paid_by]);
-      const payeeName = isPayeeMe ? 'you' : userName(userMap[s.paid_to]);
-      const icon = s.status === 'completed' ? <Handshake weight="fill" /> : <Money weight="fill" />;
-      activityItems.push({
-        id: `set-${s.id}`,
-        type: s.status === 'completed' ? 'settlement' : 'payment',
-        text: `${payerName} paid ${payeeName}`,
-        amount: `$${Number(s.amount).toFixed(2)}`,
-        time: formatRelativeTime(s.created_at),
-        icon,
-        color: s.status === 'completed' ? 'yellow' : 'green',
-        timestamp: s.created_at ? new Date(s.created_at).getTime() : 0,
-      });
-    }
-
-    activityItems.sort((a, b) => b.timestamp - a.timestamp);
-    setItems(activityItems.slice(0, 30));
-    setIsLoading(false);
   }, [db]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => { loadActivity(); }, [loadActivity]); // eslint-disable-line react-hooks/exhaustive-deps

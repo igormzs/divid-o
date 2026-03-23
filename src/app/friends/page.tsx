@@ -36,87 +36,93 @@ export default function FriendsPage() {
 
   const loadFriends = useCallback(async () => {
     setIsLoading(true);
-    const { data: { user } } = await db.auth.getUser();
-    if (!user) { setIsLoading(false); return; }
+    try {
+      const { data: { user } } = await db.auth.getUser();
+      if (!user) return;
 
-    // 1. Get all groups the current user belongs to
-    const { data: myMemberships } = await db
-      .from('group_members')
-      .select('group_id')
-      .eq('user_id', user.id);
+      // 1. Get all groups the current user belongs to
+      const { data: myMemberships } = await db
+        .from('group_members')
+        .select('group_id')
+        .eq('user_id', user.id);
 
-    const groupIds = ((myMemberships ?? []) as GroupMemberRow[]).map(r => r.group_id);
-    if (groupIds.length === 0) { setFriends([]); setIsLoading(false); return; }
+      const groupIds = ((myMemberships ?? []) as GroupMemberRow[]).map(r => r.group_id);
+      if (groupIds.length === 0) { setFriends([]); return; }
 
-    // 2. Find all co-members (unique users in those groups, excluding self)
-    const { data: coMembers } = await db
-      .from('group_members')
-      .select('user_id')
-      .in('group_id', groupIds)
-      .neq('user_id', user.id);
+      // 2. Find all co-members (unique users in those groups, excluding self)
+      const { data: coMembers } = await db
+        .from('group_members')
+        .select('user_id')
+        .in('group_id', groupIds)
+        .neq('user_id', user.id);
 
-    const coMemberIds = [...new Set(((coMembers ?? []) as GroupMemberRow[]).map(r => r.user_id))];
-    if (coMemberIds.length === 0) { setFriends([]); setIsLoading(false); return; }
+      const coMemberIds = [...new Set(((coMembers ?? []) as GroupMemberRow[]).map(r => r.user_id))];
+      if (coMemberIds.length === 0) { setFriends([]); return; }
 
-    // 3. Fetch their profiles
-    const { data: profiles } = await db
-      .from('users')
-      .select('id, first_name, last_name, email, avatar_url, created_at')
-      .in('id', coMemberIds);
+      // 3. Fetch their profiles
+      const { data: profiles } = await db
+        .from('users')
+        .select('id, first_name, last_name, email, avatar_url, created_at')
+        .in('id', coMemberIds);
 
-    // 4. Fetch all expenses in shared groups
-    const { data: rawExpenses } = await db
-      .from('expenses')
-      .select('id, group_id, paid_by, amount, expense_splits(user_id, amount_owed)')
-      .in('group_id', groupIds);
+      // 4. Fetch all expenses in shared groups
+      const { data: rawExpenses } = await db
+        .from('expenses')
+        .select('id, group_id, paid_by, amount, expense_splits(user_id, amount_owed)')
+        .in('group_id', groupIds);
 
-    const expenses = (rawExpenses ?? []) as (ExpenseRow & { expense_splits: { user_id: string; amount_owed: number }[] | null })[];
+      const expenses = (rawExpenses ?? []) as (ExpenseRow & { expense_splits: { user_id: string; amount_owed: number }[] | null })[];
 
-    // 5. Fetch completed settlements
-    const { data: rawSettlements } = await db
-      .from('settlements')
-      .select('id, group_id, paid_by, paid_to, amount, status, created_at')
-      .in('group_id', groupIds)
-      .eq('status', 'completed');
+      // 5. Fetch completed settlements
+      const { data: rawSettlements } = await db
+        .from('settlements')
+        .select('id, group_id, paid_by, paid_to, amount, status, created_at')
+        .in('group_id', groupIds)
+        .eq('status', 'completed');
 
-    const settlements = (rawSettlements ?? []) as SettlementRow[];
+      const settlements = (rawSettlements ?? []) as SettlementRow[];
 
-    // 6. Compute net balance per friend
-    const friendsWithBalance: FriendWithBalance[] = ((profiles ?? []) as UserRow[]).map(profile => {
-      let owedToMe = 0;
-      let iOwe = 0;
+      // 6. Compute net balance per friend
+      const friendsWithBalance: FriendWithBalance[] = ((profiles ?? []) as UserRow[]).map(profile => {
+        let owedToMe = 0;
+        let iOwe = 0;
 
-      for (const expense of expenses) {
-        const splits = expense.expense_splits ?? [];
+        for (const expense of expenses) {
+          const splits = expense.expense_splits ?? [];
 
-        if (expense.paid_by === user.id) {
-          const theirSplit = splits.find(s => s.user_id === profile.id);
-          if (theirSplit) owedToMe += Number(theirSplit.amount_owed);
-        } else if (expense.paid_by === profile.id) {
-          const mySplit = splits.find(s => s.user_id === user.id);
-          if (mySplit) iOwe += Number(mySplit.amount_owed);
+          if (expense.paid_by === user.id) {
+            const theirSplit = splits.find(s => s.user_id === profile.id);
+            if (theirSplit) owedToMe += Number(theirSplit.amount_owed);
+          } else if (expense.paid_by === profile.id) {
+            const mySplit = splits.find(s => s.user_id === user.id);
+            if (mySplit) iOwe += Number(mySplit.amount_owed);
+          }
         }
-      }
 
-      for (const s of settlements) {
-        if (s.paid_by === user.id && s.paid_to === profile.id) iOwe -= Number(s.amount);
-        if (s.paid_by === profile.id && s.paid_to === user.id) owedToMe -= Number(s.amount);
-      }
+        for (const s of settlements) {
+          if (s.paid_by === user.id && s.paid_to === profile.id) iOwe -= Number(s.amount);
+          if (s.paid_by === profile.id && s.paid_to === user.id) owedToMe -= Number(s.amount);
+        }
 
-      const balance = toDollars(toCents(owedToMe) - toCents(iOwe));
+        const balance = toDollars(toCents(owedToMe) - toCents(iOwe));
 
-      return {
-        id: profile.id,
-        name: `${profile.first_name ?? ''} ${profile.last_name ?? ''}`.trim() || profile.email,
-        email: profile.email,
-        initials: getInitials(profile.first_name, profile.last_name),
-        balance,
-      };
-    });
+        return {
+          id: profile.id,
+          name: `${profile.first_name ?? ''} ${profile.last_name ?? ''}`.trim() || profile.email,
+          email: profile.email,
+          initials: getInitials(profile.first_name, profile.last_name),
+          balance,
+        };
+      });
 
-    friendsWithBalance.sort((a, b) => Math.abs(b.balance) - Math.abs(a.balance));
-    setFriends(friendsWithBalance);
-    setIsLoading(false);
+      friendsWithBalance.sort((a, b) => Math.abs(b.balance) - Math.abs(a.balance));
+      setFriends(friendsWithBalance);
+    } catch (err) {
+      console.error('Friends load error:', err);
+      toast.error('Friends Error: ' + (err instanceof Error ? err.message : 'Unknown error'));
+    } finally {
+      setIsLoading(false);
+    }
   }, [db]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => { loadFriends(); }, [loadFriends]); // eslint-disable-line react-hooks/exhaustive-deps

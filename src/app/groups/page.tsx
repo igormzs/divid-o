@@ -46,85 +46,90 @@ export default function GroupsPage() {
 
   const loadGroups = useCallback(async () => {
     setIsLoading(true);
-    const { data: { user } } = await db.auth.getUser();
-    if (!user) { setIsLoading(false); return; }
+    try {
+      const { data: { user } } = await db.auth.getUser();
+      if (!user) return;
 
-    const { data: memberRows } = await db
-      .from('group_members')
-      .select('group_id, groups(*)')
-      .eq('user_id', user.id);
+      const { data: memberRows } = await db
+        .from('group_members')
+        .select('group_id, groups(*)')
+        .eq('user_id', user.id);
 
-    const userGroups: Group[] = ((memberRows ?? []) as (GroupMemberRow & { groups: Group | null })[])
-      .map(r => r.groups)
-      .filter(Boolean) as Group[];
+      const userGroups: Group[] = ((memberRows ?? []) as (GroupMemberRow & { groups: Group | null })[])
+        .map(r => r.groups)
+        .filter(Boolean) as Group[];
 
-    if (userGroups.length === 0) {
-      setGroups([]);
-      setIsLoading(false);
-      return;
-    }
+      if (userGroups.length === 0) {
+        setGroups([]);
+        return;
+      }
 
-    const groupIds = userGroups.map(g => g.id);
+      const groupIds = userGroups.map(g => g.id);
 
-    const { data: allMembers } = await db
-      .from('group_members')
-      .select('group_id, user_id')
-      .in('group_id', groupIds);
+      const { data: allMembers } = await db
+        .from('group_members')
+        .select('group_id, user_id')
+        .in('group_id', groupIds);
 
-    const { data: expenses } = await db
-      .from('expenses')
-      .select('id, group_id, paid_by, amount, created_at, expense_splits(user_id, amount_owed)')
-      .in('group_id', groupIds)
-      .order('created_at', { ascending: false });
+      const { data: expenses } = await db
+        .from('expenses')
+        .select('id, group_id, paid_by, amount, created_at, expense_splits(user_id, amount_owed)')
+        .in('group_id', groupIds)
+        .order('created_at', { ascending: false });
 
-    const { data: settlements } = await db
-      .from('settlements')
-      .select('id, group_id, paid_by, paid_to, amount, created_at')
-      .in('group_id', groupIds)
-      .eq('status', 'completed');
+      const { data: settlements } = await db
+        .from('settlements')
+        .select('id, group_id, paid_by, paid_to, amount, created_at')
+        .in('group_id', groupIds)
+        .eq('status', 'completed');
 
-    const typedExpenses = (expenses ?? []) as (ExpenseRow & { expense_splits: { user_id: string; amount_owed: number }[] | null })[];
-    const typedSettlements = (settlements ?? []) as SettlementRow[];
+      const typedExpenses = (expenses ?? []) as (ExpenseRow & { expense_splits: { user_id: string; amount_owed: number }[] | null })[];
+      const typedSettlements = (settlements ?? []) as SettlementRow[];
 
-    const groupsWithBalance: GroupWithBalance[] = userGroups.map(group => {
-      const groupExpenses = typedExpenses.filter(e => e.group_id === group.id);
-      const groupSettlements = typedSettlements.filter(s => s.group_id === group.id);
+      const groupsWithBalance: GroupWithBalance[] = userGroups.map(group => {
+        const groupExpenses = typedExpenses.filter(e => e.group_id === group.id);
+        const groupSettlements = typedSettlements.filter(s => s.group_id === group.id);
 
-      let owedToMe = 0;
-      let iOwe = 0;
+        let owedToMe = 0;
+        let iOwe = 0;
 
-      for (const expense of groupExpenses) {
-        const splits = expense.expense_splits ?? [];
-        if (expense.paid_by === user.id) {
-          for (const split of splits) {
-            if (split.user_id !== user.id) owedToMe += Number(split.amount_owed);
+        for (const expense of groupExpenses) {
+          const splits = expense.expense_splits ?? [];
+          if (expense.paid_by === user.id) {
+            for (const split of splits) {
+              if (split.user_id !== user.id) owedToMe += Number(split.amount_owed);
+            }
+          } else {
+            const mySplit = splits.find(s => s.user_id === user.id);
+            if (mySplit) iOwe += Number(mySplit.amount_owed);
           }
-        } else {
-          const mySplit = splits.find(s => s.user_id === user.id);
-          if (mySplit) iOwe += Number(mySplit.amount_owed);
         }
-      }
 
-      for (const s of groupSettlements) {
-        if (s.paid_by === user.id) iOwe -= Number(s.amount);
-        if (s.paid_to === user.id) owedToMe -= Number(s.amount);
-      }
+        for (const s of groupSettlements) {
+          if (s.paid_by === user.id) iOwe -= Number(s.amount);
+          if (s.paid_to === user.id) owedToMe -= Number(s.amount);
+        }
 
-      const memberCount = ((allMembers ?? []) as GroupMemberRow[]).filter(m => m.group_id === group.id).length;
-      const latestExpense = groupExpenses[0];
+        const memberCount = ((allMembers ?? []) as GroupMemberRow[]).filter(m => m.group_id === group.id).length;
+        const latestExpense = groupExpenses[0];
 
-      return {
-        ...group,
-        memberCount,
-        balance: toDollars(toCents(owedToMe) - toCents(iOwe)),
-        lastActive: latestExpense
-          ? formatRelativeTime(latestExpense.created_at)
-          : formatRelativeTime(group.created_at),
-      };
-    });
+        return {
+          ...group,
+          memberCount,
+          balance: toDollars(toCents(owedToMe) - toCents(iOwe)),
+          lastActive: latestExpense
+            ? formatRelativeTime(latestExpense.created_at)
+            : formatRelativeTime(group.created_at),
+        };
+      });
 
-    setGroups(groupsWithBalance);
-    setIsLoading(false);
+      setGroups(groupsWithBalance);
+    } catch (err) {
+      console.error('Groups load error:', err);
+      toast.error('Groups Error: ' + (err instanceof Error ? err.message : 'Unknown error'));
+    } finally {
+      setIsLoading(false);
+    }
   }, [db]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => { loadGroups(); }, [loadGroups]); // eslint-disable-line react-hooks/exhaustive-deps

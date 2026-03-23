@@ -153,7 +153,7 @@ export default function Home() {
       setRecentExpenses(recent);
     } catch (err) {
       console.error('Dashboard load error:', err);
-      toast.error('Failed to load dashboard data.');
+      toast.error('Dashboard Error: ' + (err instanceof Error ? err.message : 'Unknown error'));
     } finally {
       setIsLoading(false);
     }
