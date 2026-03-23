@@ -127,57 +127,8 @@
   cursor: wait;
 }
 
-.divider {
-  display: flex;
-  align-items: center;
-  text-align: center;
-  margin: 24px 0;
-  color: var(--text-secondary);
-  font-size: 13px;
-  font-weight: 500;
-}
 
-.divider::before, .divider::after {
-  content: '';
-  flex: 1;
-  border-bottom: 1px solid var(--border-light);
-}
 
-.divider span {
-  padding: 0 12px;
-}
-
-.googleBtn {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 12px;
-  width: 100%;
-  padding: 14px;
-  background: var(--bg-main);
-  border: 1px solid var(--border-light);
-  border-radius: var(--radius-sm);
-  font-size: 15px;
-  font-weight: 600;
-  color: var(--text-primary);
-  cursor: pointer;
-  transition: all 0.2s;
-  outline: none;
-}
-
-.googleBtn:hover:not(:disabled) {
-  background: var(--bg-pastel-purple);
-  border-color: var(--color-purple);
-}
-
-.googleBtn:disabled {
-  opacity: 0.7;
-  cursor: wait;
-}
-
-.icon {
-  font-size: 20px;
-}
 
 .tabs {
   display: flex;

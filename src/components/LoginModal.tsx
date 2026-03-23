@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { createClient } from '@/utils/supabase/client';
 import { toast } from 'sonner';
 import styles from './LoginModal.module.css';
-import { GoogleLogo, Cube } from '@phosphor-icons/react';
+import { Cube } from '@phosphor-icons/react';
 
 export default function LoginModal() {
   const [isLogin, setIsLogin] = useState(true);
@@ -44,6 +44,7 @@ export default function LoginModal() {
         options: {
           data: {
             full_name: firstName,
+            first_name: firstName,
           }
         }
       });
@@ -57,20 +58,7 @@ export default function LoginModal() {
     }
   };
 
-  const handleGoogleLogin = async () => {
-    setIsLoading(true);
-    const { error } = await supabase.auth.signInWithOAuth({
-      provider: 'google',
-      options: {
-        redirectTo: `${location.origin}/auth/callback`,
-      },
-    });
 
-    if (error) {
-      toast.error('Could not authenticate with Google.');
-      setIsLoading(false);
-    }
-  };
 
   return (
     <div className={styles.overlay}>
@@ -144,14 +132,7 @@ export default function LoginModal() {
           </button>
         </form>
 
-        <div className={styles.divider}>
-          <span>or</span>
-        </div>
 
-        <button onClick={handleGoogleLogin} type="button" className={styles.googleBtn} disabled={isLoading}>
-          <GoogleLogo weight="bold" className={styles.icon} />
-          Continue with Google
-        </button>
       </div>
     </div>
   );
