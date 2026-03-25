@@ -151,9 +151,10 @@ export default function Home() {
       // 6. Recent expenses (top 5)
       const recent = ((expenses ?? []) as Expense[]).slice(0, 5);
       setRecentExpenses(recent);
-    } catch (err) {
+    } catch (err: any) {
       console.error('Dashboard load error:', err);
-      toast.error('Dashboard Error: ' + (err instanceof Error ? err.message : 'Unknown error'));
+      const errMsg = err?.message || (typeof err === 'object' ? JSON.stringify(err) : String(err));
+      toast.error('Dashboard Error: ' + errMsg);
     } finally {
       setIsLoading(false);
     }
@@ -227,10 +228,34 @@ export default function Home() {
     payerId: string;
     groupId: string;
     splits: { userId: string; amountOwed: number }[];
+    ghostUsers?: { id: string; name: string }[];
   }) => {
     if (!authUser) return;
 
-    // 1. Insert expense
+    if (data.ghostUsers && data.ghostUsers.length > 0) {
+      const newUsers = data.ghostUsers.map(u => ({
+        id: u.id,
+        email: `${u.id}@ghost.divid-o.com`,
+        first_name: u.name,
+      }));
+      const { error: usersErr } = await db.from('users').insert(newUsers);
+      if (usersErr) {
+        toast.error('Failed to create new users. Note: make sure to run the SQL script to drop users_id_fkey!');
+        console.error(usersErr);
+        return;
+      }
+
+      const newMembers = data.ghostUsers.map(u => ({
+        group_id: data.groupId,
+        user_id: u.id,
+      }));
+      const { error: membersErr } = await db.from('group_members').insert(newMembers);
+      if (membersErr) {
+        console.error('Failed to add ghost users to group:', membersErr);
+      }
+    }
+
+    // Insert expense
     const { data: expense, error: expErr } = await db
       .from('expenses')
       .insert({

@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { MagnifyingGlass, EnvelopeSimple } from '@phosphor-icons/react';
+import { MagnifyingGlass, EnvelopeSimple, Plus, X } from '@phosphor-icons/react';
 import styles from './page.module.css';
 import { createTypedClient } from '@/utils/supabase/client';
 import { toast } from 'sonner';
@@ -31,6 +31,12 @@ export default function FriendsPage() {
   const [friends, setFriends] = useState<FriendWithBalance[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
+
+  // Add Friend Modal State
+  const [showAddFriend, setShowAddFriend] = useState(false);
+  const [newFriendName, setNewFriendName] = useState('');
+  const [newFriendEmail, setNewFriendEmail] = useState('');
+  const [isAdding, setIsAdding] = useState(false);
 
   const db = createTypedClient();
 
@@ -131,6 +137,65 @@ export default function FriendsPage() {
     toast.success(`Reminder sent to ${friend.name}!`);
   };
 
+  const handleAddFriend = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newFriendName.trim()) return;
+    setIsAdding(true);
+
+    try {
+      const { data: { user } } = await db.auth.getUser();
+      if (!user) return;
+
+      const newUserId = crypto.randomUUID();
+      const newEmail = newFriendEmail.trim() || `${newUserId}@ghost.divid-o.com`;
+
+      // 1. Create Ghost User
+      const { error: userErr } = await db.from('users').insert({
+        id: newUserId,
+        email: newEmail,
+        first_name: newFriendName.trim(),
+      });
+
+      if (userErr) {
+        toast.error('Failed to create user. Ensure you dropped users_id_fkey!');
+        console.error(userErr);
+        setIsAdding(false);
+        return;
+      }
+
+      // 2. Create a generic "Friend" group to link them
+      const { data: group, error: groupErr } = await db.from('groups').insert({
+        name: `Expenses with ${newFriendName.trim()}`,
+        description: '1-on-1 expenses',
+        created_by: user.id,
+      }).select().single();
+
+      if (groupErr || !group) {
+        toast.error('User created, but failed to create linking group.');
+        setIsAdding(false);
+        return;
+      }
+
+      // 3. Add both to group
+      await db.from('group_members').insert([
+        { group_id: group.id, user_id: user.id },
+        { group_id: group.id, user_id: newUserId }
+      ]);
+
+      toast.success(`${newFriendName} added to your friends list!`);
+      setShowAddFriend(false);
+      setNewFriendName('');
+      setNewFriendEmail('');
+      await loadFriends();
+    } catch (err: any) {
+      console.error(err);
+      toast.error(err.message || 'Error adding friend');
+    } finally {
+      setIsAdding(false);
+    }
+  };
+
+
   const filtered = friends.filter(f =>
     f.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
     f.email.toLowerCase().includes(searchQuery.toLowerCase())
@@ -138,6 +203,44 @@ export default function FriendsPage() {
 
   return (
     <div className={styles.container}>
+      {showAddFriend && (
+        <div className={styles.modalOverlay}>
+          <div className={styles.modal}>
+            <div className={styles.modalHeader}>
+              <h2>Add Friend</h2>
+              <button onClick={() => setShowAddFriend(false)} className={styles.closeBtn}><X weight="bold" /></button>
+            </div>
+            <form onSubmit={handleAddFriend} className={styles.modalForm}>
+              <div className={styles.modalField}>
+                <label>Name or Username *</label>
+                <input
+                  type="text"
+                  className={styles.modalInput}
+                  placeholder="e.g. John Doe"
+                  value={newFriendName}
+                  onChange={e => setNewFriendName(e.target.value)}
+                  autoFocus
+                  required
+                />
+              </div>
+              <div className={styles.modalField}>
+                <label>Email (optional)</label>
+                <input
+                  type="email"
+                  className={styles.modalInput}
+                  placeholder="john@example.com"
+                  value={newFriendEmail}
+                  onChange={e => setNewFriendEmail(e.target.value)}
+                />
+              </div>
+              <button type="submit" className={styles.createBtn} disabled={isAdding || !newFriendName.trim()}>
+                {isAdding ? 'Adding…' : 'Add Friend'}
+              </button>
+            </form>
+          </div>
+        </div>
+      )}
+
       <header className={styles.header}>
         <div>
           <h1 className={styles.title}>Friends</h1>
@@ -153,6 +256,9 @@ export default function FriendsPage() {
               onChange={e => setSearchQuery(e.target.value)}
             />
           </div>
+          <button className={styles.addFriendBtn} onClick={() => setShowAddFriend(true)}>
+            <Plus weight="bold" /> Add Friend
+          </button>
         </div>
       </header>
 
@@ -162,7 +268,7 @@ export default function FriendsPage() {
           <p style={{ opacity: 0.6 }}>
             {searchQuery
               ? 'No friends match your search.'
-              : 'No friends yet. Add group members to see them here.'}
+              : 'No friends yet. Add a friend or create a group.'}
           </p>
         )}
         {filtered.map((friend) => (

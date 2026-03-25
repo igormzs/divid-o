@@ -3,7 +3,7 @@
 import React, { useState } from 'react';
 import styles from './ExpenseForm.module.css';
 import { divideEquallyKeepRemainder, toCents, toDollars, divideByPercentages, validateExactAmounts } from '@/lib/centMath';
-import { Scan, Users, Calculator, Percent } from '@phosphor-icons/react';
+import { Scan, Users, Calculator, Percent, UserPlus, Plus } from '@phosphor-icons/react';
 
 type User = { id: string; name: string };
 type Group = { id: string; name: string };
@@ -17,6 +17,7 @@ interface ExpenseFormProps {
     payerId: string;
     groupId: string;
     splits: { userId: string; amountOwed: number }[];
+    ghostUsers?: { id: string; name: string }[];
   }) => void;
   onCancel: () => void;
 }
@@ -28,26 +29,31 @@ export default function ExpenseForm({ groupMembers, groups = [], onSave, onCance
   const [groupId, setGroupId] = useState(groups[0]?.id || '');
   const [splitType, setSplitType] = useState<'EQUALLY' | 'EXACT' | 'PERCENTAGE'>('EQUALLY');
   
-  // Stores exact amounts or percentages input by the user keyed by userId
   const [customInputs, setCustomInputs] = useState<Record<string, string>>({});
   const [isScanning, setIsScanning] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
 
+  // Ghost Users
+  const [ghostUsers, setGhostUsers] = useState<User[]>([]);
+  const [newGhostName, setNewGhostName] = useState('');
+  const [showAddGhost, setShowAddGhost] = useState(false);
+
+  const activeMembers = [...groupMembers, ...ghostUsers];
+
   const rawValue = parseFloat(amountInput) || 0; 
-  const payerIndex = groupMembers.findIndex(u => u.id === payerId);
+  const payerIndex = activeMembers.findIndex(u => u.id === payerId);
   const actualPayerIndex = Math.max(0, payerIndex); // fallback
 
-  // Generate the real cent-perfect splits
   let calculatedSplits: number[] = [];
   let isValid = false;
   let validationError = '';
 
   if (rawValue > 0) {
     if (splitType === 'EQUALLY') {
-      calculatedSplits = divideEquallyKeepRemainder(rawValue, groupMembers.length, actualPayerIndex);
+      calculatedSplits = divideEquallyKeepRemainder(rawValue, activeMembers.length, actualPayerIndex);
       isValid = true;
     } else if (splitType === 'PERCENTAGE') {
-      const percentages = groupMembers.map(m => parseFloat(customInputs[m.id]) || 0);
+      const percentages = activeMembers.map(m => parseFloat(customInputs[m.id]) || 0);
       const sumPc = percentages.reduce((acc, val) => acc + val, 0);
       if (Math.abs(sumPc - 100) < 0.01) {
         calculatedSplits = divideByPercentages(rawValue, percentages, actualPayerIndex);
@@ -56,7 +62,7 @@ export default function ExpenseForm({ groupMembers, groups = [], onSave, onCance
         validationError = `Percentages must add to 100% (currently ${sumPc.toFixed(1)}%)`;
       }
     } else if (splitType === 'EXACT') {
-      const exacts = groupMembers.map(m => parseFloat(customInputs[m.id]) || 0);
+      const exacts = activeMembers.map(m => parseFloat(customInputs[m.id]) || 0);
       if (validateExactAmounts(rawValue, exacts)) {
         calculatedSplits = exacts;
         isValid = true;
@@ -71,13 +77,23 @@ export default function ExpenseForm({ groupMembers, groups = [], onSave, onCance
     setCustomInputs(prev => ({ ...prev, [userId]: val }));
   };
 
-  const mockOCRScan = () => {
-    setIsScanning(true);
-    setTimeout(() => {
-      setDescription('Dinner at Olive Garden');
-      setAmountInput('145.82');
-      setIsScanning(false);
-    }, 1500);
+  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+      setIsScanning(true);
+      setTimeout(() => {
+        setDescription('Dinner at Olive Garden');
+        setAmountInput('145.82');
+        setIsScanning(false);
+      }, 1500);
+    }
+  };
+
+  const handleCreateGhostUser = () => {
+    if (!newGhostName.trim()) return;
+    const newGhost: User = { id: crypto.randomUUID(), name: newGhostName.trim() };
+    setGhostUsers(prev => [...prev, newGhost]);
+    setNewGhostName('');
+    setShowAddGhost(false);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -88,8 +104,6 @@ export default function ExpenseForm({ groupMembers, groups = [], onSave, onCance
     }
 
     setIsSaving(true);
-
-    // Rule 01: Enforce Cents-Only math
     const totalCents = toCents(rawValue);
     const finalAmount = toDollars(totalCents);
 
@@ -98,10 +112,11 @@ export default function ExpenseForm({ groupMembers, groups = [], onSave, onCance
       amount: finalAmount,
       payerId,
       groupId,
-      splits: groupMembers.map((m, i) => ({
+      splits: activeMembers.map((m, i) => ({
         userId: m.id,
         amountOwed: calculatedSplits[i] || 0,
       })),
+      ghostUsers: ghostUsers.length > 0 ? ghostUsers : undefined,
     });
 
     setIsSaving(false);
@@ -130,9 +145,18 @@ export default function ExpenseForm({ groupMembers, groups = [], onSave, onCance
         )}
 
         <div className={styles.ocrSection}>
-          <button type="button" onClick={mockOCRScan} className={styles.ocrBtn} disabled={isScanning}>
-             <Scan weight="bold" className={styles.ocrIcon} /> {isScanning ? 'Scanning Receipt...' : 'Smart Scan Receipt'}
-          </button>
+          <label className={`${styles.ocrBtn} ${isScanning ? styles.scanning : ''}`}>
+            <input 
+              type="file" 
+              accept="image/*" 
+              capture="environment" 
+              onChange={handleImageUpload} 
+              style={{ display: 'none' }} 
+              disabled={isScanning} 
+            />
+            <Scan weight="bold" className={styles.ocrIcon} /> 
+            {isScanning ? 'Scanning Receipt...' : 'Smart Scan Receipt'}
+          </label>
         </div>
 
         <div className={styles.inputGroup}>
@@ -164,8 +188,11 @@ export default function ExpenseForm({ groupMembers, groups = [], onSave, onCance
 
         <div className={styles.inputGroup}>
           <label>Paid by</label>
-          <select className={styles.select} value={payerId} onChange={e => setPayerId(e.target.value)}>
-            {groupMembers.map(m => (
+          <select className={styles.select} value={payerId} onChange={e => {
+             // If payer is empty because group members was 0 and we added a ghost user, handle it gracefully
+             setPayerId(e.target.value);
+          }}>
+            {activeMembers.map(m => (
               <option key={m.id} value={m.id}>{m.name}</option>
             ))}
           </select>
@@ -184,7 +211,7 @@ export default function ExpenseForm({ groupMembers, groups = [], onSave, onCance
             )}
 
             <ul className={styles.splitList}>
-              {groupMembers.map((m, i) => (
+              {activeMembers.map((m, i) => (
                 <li key={m.id} className={styles.splitItem}>
                   <span className={styles.splitName}>
                     {m.name} {m.id === payerId ? <span className={styles.payerBadge}>(Payer)</span> : ''}
@@ -208,6 +235,31 @@ export default function ExpenseForm({ groupMembers, groups = [], onSave, onCance
                 </li>
               ))}
             </ul>
+
+            <div className={styles.addGhostUserSection}>
+              {!showAddGhost ? (
+                <button type="button" className={styles.addGhostBtn} onClick={() => setShowAddGhost(true)}>
+                  <UserPlus weight="bold" /> Add a person to this split
+                </button>
+              ) : (
+                <div className={styles.ghostInputRow}>
+                  <input 
+                    type="text" 
+                    className={styles.input} 
+                    placeholder="Enter name (e.g. John)" 
+                    value={newGhostName}
+                    onChange={(e) => setNewGhostName(e.target.value)}
+                    autoFocus
+                  />
+                  <button type="button" className={styles.ghostAddAction} onClick={handleCreateGhostUser} disabled={!newGhostName.trim()}>
+                    <Plus weight="bold" /> Add
+                  </button>
+                  <button type="button" className={styles.ghostCancelAction} onClick={() => setShowAddGhost(false)}>
+                    Cancel
+                  </button>
+                </div>
+              )}
+            </div>
             
             {(splitType === 'EQUALLY' || splitType === 'PERCENTAGE') && isValid && (
               <p className={styles.ruleNote}>*Remainder pennies are cleanly assigned to the Payer</p>

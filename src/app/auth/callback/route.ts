@@ -5,6 +5,9 @@ export async function GET(request: Request) {
   const { searchParams, origin } = new URL(request.url);
   const code = searchParams.get('code');
   let next = searchParams.get('next') ?? '/';
+  
+  console.log('--- CALLBACK HIT ---');
+  console.log('code present?', !!code);
 
   // Guard against open-redirect attacks
   if (!next.startsWith('/')) next = '/';
@@ -12,6 +15,8 @@ export async function GET(request: Request) {
   if (code) {
     const supabase = await createClient();
     const { error } = await supabase.auth.exchangeCodeForSession(code);
+    
+    console.log('exchangeCodeForSession error?', error);
 
     if (!error) {
       // On Vercel (behind a load balancer) the original hostname is in
@@ -30,5 +35,5 @@ export async function GET(request: Request) {
   }
 
   // If anything went wrong, send back to root (login modal will appear)
-  return NextResponse.redirect(`${origin}/`);
+  return NextResponse.redirect(`${origin}/?error=callback_failed`);
 }
