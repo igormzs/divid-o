@@ -159,24 +159,19 @@ export default function GroupsPage() {
         .select()
         .single();
 
-      if (groupErr || !group) {
-        toast.error('Failed to create group.');
-        return;
-      }
+      if (groupErr || !group) throw groupErr || new Error('Failed to create group');
 
       const { error: memberErr } = await db
         .from('group_members')
         .insert({ group_id: group.id, user_id: user.id });
 
-      if (memberErr) {
-        toast.error('Group created but failed to add you as member.');
-      } else {
-        toast.success(`Group "${group.name}" created!`);
-        setShowNewGroup(false);
-        setNewGroupName('');
-        setNewGroupDesc('');
-        await loadGroups();
-      }
+      if (memberErr) throw memberErr;
+
+      toast.success(`Group "${group.name}" created!`);
+      setShowNewGroup(false);
+      setNewGroupName('');
+      setNewGroupDesc('');
+      await loadGroups();
     } catch (err: any) {
       console.error(err);
       if (err.message?.includes('users_id_fkey')) {

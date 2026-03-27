@@ -166,12 +166,7 @@ export default function FriendsPage() {
         first_name: newFriendName.trim(),
       });
 
-      if (userErr) {
-        toast.error('Failed to create user. Ensure you dropped users_id_fkey!');
-        console.error(userErr);
-        setIsAdding(false);
-        return;
-      }
+      if (userErr) throw userErr;
 
       // 2. Create a generic "Friend" group to link them
       const { data: group, error: groupErr } = await db.from('groups').insert({
@@ -180,17 +175,15 @@ export default function FriendsPage() {
         created_by: user.id,
       }).select().single();
 
-      if (groupErr || !group) {
-        toast.error('User created, but failed to create linking group.');
-        setIsAdding(false);
-        return;
-      }
+      if (groupErr || !group) throw groupErr || new Error('Failed to create linking group');
 
       // 3. Add both to group
-      await db.from('group_members').insert([
+      const { error: memberErr } = await db.from('group_members').insert([
         { group_id: group.id, user_id: user.id },
         { group_id: group.id, user_id: newUserId }
       ]);
+      
+      if (memberErr) throw memberErr;
 
       toast.success(`${newFriendName} added to your friends list!`);
       setShowAddFriend(false);
