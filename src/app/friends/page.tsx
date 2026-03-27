@@ -199,7 +199,11 @@ export default function FriendsPage() {
       await loadFriends();
     } catch (err: any) {
       console.error(err);
-      toast.error(err.message || 'Error adding friend');
+      if (err.message?.includes('users_id_fkey')) {
+        toast.error('Database configuration error: Please run the SQL fix script to support adding friends without accounts.');
+      } else {
+        toast.error(err.message || 'Error adding friend');
+      }
     } finally {
       setIsAdding(false);
     }
@@ -214,44 +218,46 @@ export default function FriendsPage() {
   return (
     <>
     {(!authUser && !isInitializing) && <LoginModal />}
-    <div className={styles.container}>
-      {showAddFriend && (
-        <div className={styles.modalOverlay}>
-          <div className={styles.modal}>
-            <div className={styles.modalHeader}>
-              <h2>Add Friend</h2>
-              <button onClick={() => setShowAddFriend(false)} className={styles.closeBtn}><X weight="bold" /></button>
-            </div>
-            <form onSubmit={handleAddFriend} className={styles.modalForm}>
-              <div className={styles.modalField}>
-                <label>Name or Username *</label>
-                <input
-                  type="text"
-                  className={styles.modalInput}
-                  placeholder="e.g. John Doe"
-                  value={newFriendName}
-                  onChange={e => setNewFriendName(e.target.value)}
-                  autoFocus
-                  required
-                />
-              </div>
-              <div className={styles.modalField}>
-                <label>Email (optional)</label>
-                <input
-                  type="email"
-                  className={styles.modalInput}
-                  placeholder="john@example.com"
-                  value={newFriendEmail}
-                  onChange={e => setNewFriendEmail(e.target.value)}
-                />
-              </div>
-              <button type="submit" className={styles.createBtn} disabled={isAdding || !newFriendName.trim()}>
-                {isAdding ? 'Adding…' : 'Add Friend'}
-              </button>
-            </form>
+    
+    {showAddFriend && (
+      <div className={styles.modalOverlay}>
+        <div className={styles.modal}>
+          <div className={styles.modalHeader}>
+            <h2>Add Friend</h2>
+            <button onClick={() => setShowAddFriend(false)} className={styles.closeBtn}><X weight="bold" /></button>
           </div>
+          <form onSubmit={handleAddFriend} className={styles.modalForm}>
+            <div className={styles.modalField}>
+              <label>Name or Username *</label>
+              <input
+                type="text"
+                className={styles.modalInput}
+                placeholder="e.g. John Doe"
+                value={newFriendName}
+                onChange={e => setNewFriendName(e.target.value)}
+                autoFocus
+                required
+              />
+            </div>
+            <div className={styles.modalField}>
+              <label>Email (optional)</label>
+              <input
+                type="email"
+                className={styles.modalInput}
+                placeholder="john@example.com"
+                value={newFriendEmail}
+                onChange={e => setNewFriendEmail(e.target.value)}
+              />
+            </div>
+            <button type="submit" className={styles.createBtn} disabled={isAdding || !newFriendName.trim()}>
+              {isAdding ? 'Adding…' : 'Add Friend'}
+            </button>
+          </form>
         </div>
-      )}
+      </div>
+    )}
+
+    <div className={styles.container}>
 
       <header className={styles.header}>
         <div>

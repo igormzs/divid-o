@@ -26,7 +26,7 @@ export default function RootLayout({
     <html lang="en" suppressHydrationWarning>
       <body>
         <ThemeProvider>
-          <Toaster richColors position="bottom-center" toastOptions={{ style: { fontFamily: 'Inter, sans-serif' } }} />
+          <Toaster richColors position="top-center" toastOptions={{ style: { fontFamily: 'Inter, sans-serif' } }} />
           <div className="app-layout">
             <Sidebar />
             <main className="main-content">

@@ -179,7 +179,11 @@ export default function GroupsPage() {
       }
     } catch (err: any) {
       console.error(err);
-      toast.error(err.message || 'Error creating group');
+      if (err.message?.includes('users_id_fkey')) {
+        toast.error('Database configuration error: Please run the SQL fix script to support this action.');
+      } else {
+        toast.error(err.message || 'Error creating group');
+      }
     } finally {
       setIsCreating(false);
     }
@@ -192,44 +196,46 @@ export default function GroupsPage() {
   return (
     <>
     {(!authUser && !isInitializing) && <LoginModal />}
-    <div className={styles.container}>
-      {showNewGroup && (
-        <div className={styles.modalOverlay}>
-          <div className={styles.modal}>
-            <div className={styles.modalHeader}>
-              <h2>New Group</h2>
-              <button onClick={() => setShowNewGroup(false)} className={styles.closeBtn}><X weight="bold" /></button>
-            </div>
-            <form onSubmit={handleCreateGroup} className={styles.modalForm}>
-              <div className={styles.modalField}>
-                <label>Group Name *</label>
-                <input
-                  type="text"
-                  className={styles.modalInput}
-                  placeholder="e.g. Apartment 4B"
-                  value={newGroupName}
-                  onChange={e => setNewGroupName(e.target.value)}
-                  autoFocus
-                  required
-                />
-              </div>
-              <div className={styles.modalField}>
-                <label>Description (optional)</label>
-                <input
-                  type="text"
-                  className={styles.modalInput}
-                  placeholder="What's this group for?"
-                  value={newGroupDesc}
-                  onChange={e => setNewGroupDesc(e.target.value)}
-                />
-              </div>
-              <button type="submit" className={styles.createBtn} disabled={isCreating || !newGroupName.trim()}>
-                {isCreating ? 'Creating…' : 'Create Group'}
-              </button>
-            </form>
+
+    {showNewGroup && (
+      <div className={styles.modalOverlay}>
+        <div className={styles.modal}>
+          <div className={styles.modalHeader}>
+            <h2>New Group</h2>
+            <button onClick={() => setShowNewGroup(false)} className={styles.closeBtn}><X weight="bold" /></button>
           </div>
+          <form onSubmit={handleCreateGroup} className={styles.modalForm}>
+            <div className={styles.modalField}>
+              <label>Group Name *</label>
+              <input
+                type="text"
+                className={styles.modalInput}
+                placeholder="e.g. Apartment 4B"
+                value={newGroupName}
+                onChange={e => setNewGroupName(e.target.value)}
+                autoFocus
+                required
+              />
+            </div>
+            <div className={styles.modalField}>
+              <label>Description (optional)</label>
+              <input
+                type="text"
+                className={styles.modalInput}
+                placeholder="What's this group for?"
+                value={newGroupDesc}
+                onChange={e => setNewGroupDesc(e.target.value)}
+              />
+            </div>
+            <button type="submit" className={styles.createBtn} disabled={isCreating || !newGroupName.trim()}>
+              {isCreating ? 'Creating…' : 'Create Group'}
+            </button>
+          </form>
         </div>
-      )}
+      </div>
+    )}
+
+    <div className={styles.container}>
 
       <header className={styles.header}>
         <div>
