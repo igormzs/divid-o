@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { Users, MagnifyingGlass, Plus, X } from '@phosphor-icons/react';
 import styles from './page.module.css';
 import Link from 'next/link';
+import LoginModal from "@/components/LoginModal";
 import { createTypedClient } from '@/utils/supabase/client';
 import { toast } from 'sonner';
 import type { Tables } from '@/types/database';
@@ -33,22 +34,31 @@ function formatRelativeTime(dateStr: string | null): string {
   return new Date(dateStr).toLocaleDateString();
 }
 
+const db = createTypedClient();
+
 export default function GroupsPage() {
   const [groups, setGroups] = useState<GroupWithBalance[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [authUser, setAuthUser] = useState<any>(null);
+  const [isInitializing, setIsInitializing] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [showNewGroup, setShowNewGroup] = useState(false);
   const [newGroupName, setNewGroupName] = useState('');
   const [newGroupDesc, setNewGroupDesc] = useState('');
   const [isCreating, setIsCreating] = useState(false);
 
-  const db = createTypedClient();
-
   const loadGroups = useCallback(async () => {
     setIsLoading(true);
     try {
       const { data: { user } } = await db.auth.getUser();
-      if (!user) return;
+      if (!user) {
+         setAuthUser(null);
+         setIsInitializing(false);
+         setIsLoading(false);
+         return;
+      }
+      setAuthUser(user);
+      setIsInitializing(false);
 
       const { data: memberRows } = await db
         .from('group_members')
@@ -130,7 +140,7 @@ export default function GroupsPage() {
     } finally {
       setIsLoading(false);
     }
-  }, [db]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => { loadGroups(); }, [loadGroups]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -139,35 +149,40 @@ export default function GroupsPage() {
     if (!newGroupName.trim()) return;
     setIsCreating(true);
 
-    const { data: { user } } = await db.auth.getUser();
-    if (!user) { setIsCreating(false); return; }
+    try {
+      const { data: { user } } = await db.auth.getUser();
+      if (!user) return;
 
-    const { data: group, error: groupErr } = await db
-      .from('groups')
-      .insert({ name: newGroupName.trim(), description: newGroupDesc.trim() || null, created_by: user.id })
-      .select()
-      .single();
+      const { data: group, error: groupErr } = await db
+        .from('groups')
+        .insert({ name: newGroupName.trim(), description: newGroupDesc.trim() || null, created_by: user.id })
+        .select()
+        .single();
 
-    if (groupErr || !group) {
-      toast.error('Failed to create group.');
+      if (groupErr || !group) {
+        toast.error('Failed to create group.');
+        return;
+      }
+
+      const { error: memberErr } = await db
+        .from('group_members')
+        .insert({ group_id: group.id, user_id: user.id });
+
+      if (memberErr) {
+        toast.error('Group created but failed to add you as member.');
+      } else {
+        toast.success(`Group "${group.name}" created!`);
+        setShowNewGroup(false);
+        setNewGroupName('');
+        setNewGroupDesc('');
+        await loadGroups();
+      }
+    } catch (err: any) {
+      console.error(err);
+      toast.error(err.message || 'Error creating group');
+    } finally {
       setIsCreating(false);
-      return;
     }
-
-    const { error: memberErr } = await db
-      .from('group_members')
-      .insert({ group_id: group.id, user_id: user.id });
-
-    if (memberErr) {
-      toast.error('Group created but failed to add you as member.');
-    } else {
-      toast.success(`Group "${group.name}" created!`);
-      setShowNewGroup(false);
-      setNewGroupName('');
-      setNewGroupDesc('');
-      await loadGroups();
-    }
-    setIsCreating(false);
   };
 
   const filtered = groups.filter(g =>
@@ -175,6 +190,8 @@ export default function GroupsPage() {
   );
 
   return (
+    <>
+    {(!authUser && !isInitializing) && <LoginModal />}
     <div className={styles.container}>
       {showNewGroup && (
         <div className={styles.modalOverlay}>
@@ -238,9 +255,18 @@ export default function GroupsPage() {
       <div className={styles.groupsGrid}>
         {isLoading && <p style={{ opacity: 0.6 }}>Loading…</p>}
         {!isLoading && filtered.length === 0 && (
-          <p style={{ opacity: 0.6 }}>
-            {searchQuery ? 'No groups match your search.' : 'No groups yet. Create your first one!'}
-          </p>
+          <div className={styles.emptyState}>
+            <div className={styles.emptyIcon}>
+              <Users weight="thin" size={80} />
+            </div>
+            <h2>No groups found</h2>
+            <p>{searchQuery ? 'No groups match your search.' : "You don't have any groups yet. Create one to start sharing expenses!"}</p>
+            {!searchQuery && (
+              <button className={styles.emptyActionBtn} onClick={() => setShowNewGroup(true)}>
+                <Plus weight="bold" /> Create Your First Group
+              </button>
+            )}
+          </div>
         )}
         {filtered.map((group) => (
           <Link href={`/groups/${group.id}`} key={group.id} className={styles.groupCard}>
@@ -268,5 +294,6 @@ export default function GroupsPage() {
         ))}
       </div>
     </div>
+    </>
   );
 }

@@ -1,4 +1,4 @@
-import type { Metadata } from 'next';
+import type { Metadata, Viewport } from 'next';
 import './globals.css';
 import Sidebar from '@/components/Sidebar';
 import BottomNav from '@/components/BottomNav';
@@ -8,6 +8,13 @@ import { Toaster } from 'sonner';
 export const metadata: Metadata = {
   title: 'Divid-o',
   description: 'Settle up effortlessly. The fully free expense sharing platform.',
+};
+
+export const viewport: Viewport = {
+  width: 'device-width',
+  initialScale: 1,
+  maximumScale: 1,
+  userScalable: false,
 };
 
 export default function RootLayout({

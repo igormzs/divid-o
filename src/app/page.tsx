@@ -320,15 +320,17 @@ export default function Home() {
   return (
     <>
     {(!authUser && !isInitializing) && <LoginModal />}
+    
+    {showForm && (
+      <ExpenseForm
+        groupMembers={groupMembers.length > 0 ? groupMembers : [{ id: authUser?.id ?? '', name: user?.first_name ?? 'Me' }]}
+        groups={groups.map(g => ({ id: g.id, name: g.name }))}
+        onSave={handleExpenseSave}
+        onCancel={() => setShowForm(false)}
+      />
+    )}
+
     <div className={styles.dashboardContainer}>
-      {showForm && (
-        <ExpenseForm
-          groupMembers={groupMembers.length > 0 ? groupMembers : [{ id: authUser?.id ?? '', name: user?.first_name ?? 'Me' }]}
-          groups={groups.map(g => ({ id: g.id, name: g.name }))}
-          onSave={handleExpenseSave}
-          onCancel={() => setShowForm(false)}
-        />
-      )}
 
       <header className={styles.header}>
         <div>

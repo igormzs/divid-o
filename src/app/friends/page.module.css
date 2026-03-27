@@ -1,7 +1,7 @@
 .container {
   padding-bottom: 32px;
   animation: fadeIn 0.4s ease-out forwards;
-  max-width: 1000px;
+  max-width: 1400px;
 }
 
 @keyframes fadeIn {
@@ -228,6 +228,11 @@
   .balanceCol {
     align-items: flex-start;
   }
+  
+  .friendCard {
+    padding: 16px;
+    gap: 16px;
+  }
 }
 
 @media (max-width: 480px) {
@@ -242,6 +247,60 @@
   .addFriendBtn {
     justify-content: center;
   }
+}
+
+/* Empty State */
+.emptyState {
+  grid-column: 1 / -1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 80px 24px;
+  background: var(--surface-white);
+  border-radius: var(--radius-lg);
+  border: 1px dashed var(--border-light);
+  text-align: center;
+}
+
+.emptyIcon {
+  color: var(--color-purple);
+  opacity: 0.2;
+  margin-bottom: 24px;
+}
+
+.emptyState h2 {
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin-bottom: 12px;
+}
+
+.emptyState p {
+  font-size: 15px;
+  color: var(--text-secondary);
+  max-width: 320px;
+  margin-bottom: 32px;
+  line-height: 1.6;
+}
+
+.emptyActionBtn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--color-purple);
+  color: white;
+  padding: 14px 28px;
+  border-radius: var(--radius-full);
+  font-weight: 600;
+  font-size: 15px;
+  transition: all 0.2s;
+  box-shadow: 0 4px 12px rgba(67, 56, 202, 0.2);
+}
+
+.emptyActionBtn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(67, 56, 202, 0.3);
 }
 
 /* Modal Styles */

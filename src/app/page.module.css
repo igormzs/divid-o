@@ -418,6 +418,8 @@
 @media (max-width: 1024px) {
   .cardsRow {
     grid-template-columns: 1fr;
+    gap: 16px;
+    margin-bottom: 32px;
   }
   
   .searchBar {
@@ -426,9 +428,45 @@
   
   .bottomSection {
     grid-template-columns: 1fr;
+    gap: 24px;
   }
 
   .barFill {
     width: 32px;
+  }
+}
+
+@media (max-width: 768px) {
+  .title {
+    font-size: 22px;
+  }
+  
+  .card {
+    padding: 20px;
+  }
+  
+  .cardAmount {
+    font-size: 28px;
+    margin-bottom: 16px;
+  }
+  
+  .miniChart {
+    height: 40px;
+  }
+  
+  .groupsGrid {
+    grid-template-columns: 1fr;
+  }
+  
+  .groupCard {
+    padding: 20px;
+  }
+  
+  .chartTitleTrend {
+    font-size: 28px;
+  }
+  
+  .barChartPlaceholder {
+    height: 200px;
   }
 }

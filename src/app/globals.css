@@ -78,7 +78,7 @@ button {
   padding: 32px;
   margin-left: 260px; /* Space for desktop sidebar */
   overflow-y: auto;
-  max-width: 1200px;
+  max-width: 1400px;
 }
 
 /* Mobile Constraints */
@@ -87,6 +87,18 @@ button {
     margin-left: 0;
     padding: 24px;
     padding-bottom: 120px; /* Space for bottom nav */
+  }
+}
+
+@media (max-width: 768px) {
+  .main-content {
+    padding: 16px;
+    padding-bottom: 100px;
+    overflow-x: hidden; /* Prevent horizontal scroll */
+  }
+  
+  html, body {
+    overflow-x: hidden;
   }
 }
 

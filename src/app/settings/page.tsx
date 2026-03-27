@@ -2,12 +2,15 @@
 
 import { useState, useEffect } from 'react';
 import styles from './page.module.css';
+import LoginModal from "@/components/LoginModal";
 import { createTypedClient } from '@/utils/supabase/client';
 import { toast } from 'sonner';
-import { Camera } from '@phosphor-icons/react';
+import { Camera, SpinnerGap } from '@phosphor-icons/react';
 
 export default function SettingsPage() {
   const [isLoading, setIsLoading] = useState(true);
+  const [isInitializing, setIsInitializing] = useState(true);
+  const [authUser, setAuthUser] = useState<any>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [userId, setUserId] = useState<string | null>(null);
   const [email, setEmail] = useState('');
@@ -22,9 +25,13 @@ export default function SettingsPage() {
     async function loadProfile() {
       const { data: { user } } = await db.auth.getUser();
       if (!user) {
+        setAuthUser(null);
+        setIsInitializing(false);
         setIsLoading(false);
         return;
       }
+      setAuthUser(user);
+      setIsInitializing(false);
       setUserId(user.id);
       setEmail(user.email ?? '');
 
@@ -108,6 +115,8 @@ export default function SettingsPage() {
   }
 
   return (
+    <>
+    {(!authUser && !isInitializing) && <LoginModal />}
     <div className={styles.container}>
       <header className={styles.header}>
         <h1 className={styles.title}>Settings</h1>
@@ -115,7 +124,13 @@ export default function SettingsPage() {
       </header>
 
       <div className={styles.card}>
-        <form onSubmit={handleSave}>
+        {isLoading && (
+          <div className={styles.loadingOverlay}>
+            <SpinnerGap className={styles.spinner} weight="bold" />
+            <p>Loading your profile...</p>
+          </div>
+        )}
+        <form onSubmit={handleSave} style={{ opacity: isLoading ? 0.5 : 1, pointerEvents: isLoading ? 'none' : 'auto' }}>
           <div className={styles.avatarSection}>
             <div className={styles.avatar}>
               {avatarUrl && <img src={avatarUrl} alt="Avatar" />}
@@ -197,5 +212,6 @@ export default function SettingsPage() {
         </form>
       </div>
     </div>
+    </>
   );
 }

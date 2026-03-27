@@ -1,7 +1,7 @@
 .container {
   padding-bottom: 32px;
   animation: fadeIn 0.4s ease-out forwards;
-  max-width: 800px; /* Thinner layout for timeline readability */
+  max-width: 1400px;
 }
 
 @keyframes fadeIn {
@@ -174,4 +174,53 @@
   .searchBar {
     width: 100%;
   }
+  
+  .timelineContent {
+    padding: 16px;
+  }
+  
+  .timelineItem {
+    gap: 16px;
+  }
+  
+  .timelineIcon {
+    width: 40px;
+    height: 40px;
+    font-size: 16px;
+    box-shadow: 0 0 0 6px var(--bg-cream), var(--shadow-inset);
+  }
+}
+
+/* Empty State */
+.emptyState {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 80px 24px;
+  background: var(--surface-white);
+  border-radius: var(--radius-lg);
+  border: 1px dashed var(--border-light);
+  text-align: center;
+  margin-top: 20px;
+}
+
+.emptyIcon {
+  color: var(--color-purple);
+  opacity: 0.2;
+  margin-bottom: 24px;
+}
+
+.emptyState h2 {
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin-bottom: 12px;
+}
+
+.emptyState p {
+  font-size: 15px;
+  color: var(--text-secondary);
+  max-width: 350px;
+  line-height: 1.6;
 }

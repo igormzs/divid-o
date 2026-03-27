@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Receipt, Money, Handshake, MagnifyingGlass } from '@phosphor-icons/react';
 import styles from './page.module.css';
+import LoginModal from "@/components/LoginModal";
 import { createTypedClient } from '@/utils/supabase/client';
 import { toast } from 'sonner';
 import type { Tables } from '@/types/database';
@@ -42,18 +43,27 @@ function userName(u: Pick<UserRow, 'first_name' | 'last_name'> | undefined): str
   return `${u.first_name ?? ''} ${u.last_name ?? ''}`.trim() || 'Someone';
 }
 
+const db = createTypedClient();
+
 export default function ActivityPage() {
   const [items, setItems] = useState<ActivityItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [authUser, setAuthUser] = useState<any>(null);
+  const [isInitializing, setIsInitializing] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
-
-  const db = createTypedClient();
 
   const loadActivity = useCallback(async () => {
     setIsLoading(true);
     try {
       const { data: { user } } = await db.auth.getUser();
-      if (!user) return;
+      if (!user) {
+        setAuthUser(null);
+        setIsInitializing(false);
+        setIsLoading(false);
+        return;
+      }
+      setAuthUser(user);
+      setIsInitializing(false);
 
       // Get user's group IDs
       const { data: memberRows } = await db
@@ -146,7 +156,7 @@ export default function ActivityPage() {
     } finally {
       setIsLoading(false);
     }
-  }, [db]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => { loadActivity(); }, [loadActivity]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -155,6 +165,8 @@ export default function ActivityPage() {
   );
 
   return (
+    <>
+    {(!authUser && !isInitializing) && <LoginModal />}
     <div className={styles.container}>
       <header className={styles.header}>
         <div>
@@ -175,9 +187,13 @@ export default function ActivityPage() {
       <div className={styles.timeline}>
         {isLoading && <p style={{ opacity: 0.6 }}>Loading…</p>}
         {!isLoading && filtered.length === 0 && (
-          <p style={{ opacity: 0.6 }}>
-            {searchQuery ? 'No activity matches your search.' : 'No activity yet. Add an expense to get started!'}
-          </p>
+          <div className={styles.emptyState}>
+            <div className={styles.emptyIcon}>
+              <Receipt weight="thin" size={80} />
+            </div>
+            <h2>No activity yet</h2>
+            <p>{searchQuery ? 'No activity matches your search.' : 'Your expense and payment history will appear here. Add an expense to get started!'}</p>
+          </div>
         )}
         {filtered.map((activity, index) => (
           <div key={activity.id} className={styles.timelineItem}>
@@ -200,5 +216,6 @@ export default function ActivityPage() {
         ))}
       </div>
     </div>
+    </>
   );
 }

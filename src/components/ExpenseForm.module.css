@@ -8,7 +8,7 @@
   backdrop-filter: blur(4px);
   z-index: 200;
   display: flex;
-  justify-content: flex-end;
+  justify-content: flex-end; /* Aligned to the right */
 }
 
 .formContainer {

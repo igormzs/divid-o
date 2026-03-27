@@ -1,25 +1,25 @@
 import { createBrowserClient } from '@supabase/ssr'
 import type { Database } from '@/types/database'
 
+let client: ReturnType<typeof createBrowserClient<Database>> | null = null;
+
 /**
  * Auth-aware Supabase browser client.
- * createBrowserClient is a singleton per URL+key — calling it multiple
- * times returns the same instance, so there are no duplicate listeners.
+ * Returns a cached singleton instance to avoid duplicate listeners and infinite loops.
  */
 export function createClient() {
-  return createBrowserClient<Database>(
+  if (client) return client;
+  
+  client = createBrowserClient<Database>(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-  )
+  );
+  return client;
 }
 
 /**
- * Alias for createClient — kept for backward compat with pages that import
- * createTypedClient. Same singleton instance, fully typed and auth-aware.
+ * Alias for createClient - fully typed and auth-aware.
  */
 export function createTypedClient() {
-  return createBrowserClient<Database>(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-  )
+  return createClient();
 }

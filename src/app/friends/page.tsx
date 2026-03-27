@@ -1,8 +1,9 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { MagnifyingGlass, EnvelopeSimple, Plus, X } from '@phosphor-icons/react';
+import { MagnifyingGlass, EnvelopeSimple, Plus, X, Users } from '@phosphor-icons/react';
 import styles from './page.module.css';
+import LoginModal from "@/components/LoginModal";
 import { createTypedClient } from '@/utils/supabase/client';
 import { toast } from 'sonner';
 import type { Tables } from '@/types/database';
@@ -27,9 +28,13 @@ function getInitials(first: string | null, last: string | null): string {
   return (f + l).toUpperCase();
 }
 
+const db = createTypedClient();
+
 export default function FriendsPage() {
   const [friends, setFriends] = useState<FriendWithBalance[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [authUser, setAuthUser] = useState<any>(null);
+  const [isInitializing, setIsInitializing] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
 
   // Add Friend Modal State
@@ -38,13 +43,18 @@ export default function FriendsPage() {
   const [newFriendEmail, setNewFriendEmail] = useState('');
   const [isAdding, setIsAdding] = useState(false);
 
-  const db = createTypedClient();
-
   const loadFriends = useCallback(async () => {
     setIsLoading(true);
     try {
       const { data: { user } } = await db.auth.getUser();
-      if (!user) return;
+      if (!user) {
+        setAuthUser(null);
+        setIsInitializing(false);
+        setIsLoading(false);
+        return;
+      }
+      setAuthUser(user);
+      setIsInitializing(false);
 
       // 1. Get all groups the current user belongs to
       const { data: myMemberships } = await db
@@ -129,7 +139,7 @@ export default function FriendsPage() {
     } finally {
       setIsLoading(false);
     }
-  }, [db]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => { loadFriends(); }, [loadFriends]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -202,6 +212,8 @@ export default function FriendsPage() {
   );
 
   return (
+    <>
+    {(!authUser && !isInitializing) && <LoginModal />}
     <div className={styles.container}>
       {showAddFriend && (
         <div className={styles.modalOverlay}>
@@ -265,11 +277,18 @@ export default function FriendsPage() {
       <div className={styles.friendsList}>
         {isLoading && <p style={{ opacity: 0.6 }}>Loading…</p>}
         {!isLoading && filtered.length === 0 && (
-          <p style={{ opacity: 0.6 }}>
-            {searchQuery
-              ? 'No friends match your search.'
-              : 'No friends yet. Add a friend or create a group.'}
-          </p>
+          <div className={styles.emptyState}>
+            <div className={styles.emptyIcon}>
+              <Users weight="thin" size={80} />
+            </div>
+            <h2>No friends found</h2>
+            <p>{searchQuery ? 'No friends match your search.' : "Your friends list is empty. Add people you share expenses with to get started!"}</p>
+            {!searchQuery && (
+              <button className={styles.emptyActionBtn} onClick={() => setShowAddFriend(true)}>
+                <Plus weight="bold" /> Add Your First Friend
+              </button>
+            )}
+          </div>
         )}
         {filtered.map((friend) => (
           <div key={friend.id} className={styles.friendCard}>
@@ -309,5 +328,6 @@ export default function FriendsPage() {
         ))}
       </div>
     </div>
+    </>
   );
 }

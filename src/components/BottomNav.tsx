@@ -2,15 +2,12 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { useTheme } from 'next-themes';
 import { useEffect, useState } from 'react';
-import { createClient } from '@/utils/supabase/client';
-import { SquaresFour, Users, FileText, User } from '@phosphor-icons/react';
+import { SquaresFour, Users, ChartPieSlice, UserPlus, GearSix } from '@phosphor-icons/react';
 import styles from './Navigation.module.css';
 
 export default function BottomNav() {
   const pathname = usePathname();
-  const { theme, setTheme } = useTheme();
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => setMounted(true), []);
@@ -18,8 +15,12 @@ export default function BottomNav() {
   const links = [
     { href: '/', icon: <SquaresFour weight="fill" /> },
     { href: '/groups', icon: <Users weight="fill" /> },
-    { href: '/activity', icon: <FileText weight="fill" /> },
+    { href: '/activity', icon: <ChartPieSlice weight="fill" /> },
+    { href: '/friends', icon: <UserPlus weight="fill" /> },
+    { href: '/settings', icon: <GearSix weight="fill" /> },
   ];
+
+  if (!mounted) return null;
 
   return (
     <nav className={styles.bottomNav}>
@@ -36,19 +37,6 @@ export default function BottomNav() {
             </Link>
           );
         })}
-        {mounted && (
-          <button
-            className={styles.bottomNavItem}
-            onClick={async () => {
-              const supabase = createClient();
-              await supabase.auth.signOut();
-              window.location.href = '/login';
-            }}
-            style={{ background: 'transparent', border: 'none', cursor: 'pointer' }}
-          >
-            <User weight="bold" />
-          </button>
-        )}
       </div>
     </nav>
   );
