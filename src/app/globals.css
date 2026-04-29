@@ -1,62 +1,70 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Public+Sans:wght@400;500;600;700;800&display=swap');
 
 :root {
-  /* Layout Colors */
-  --bg-sidebar: #ffffff;     /* Sidebar & Bottom Nav (Light Mode) */
-  --bg-main: #f9f9f9;       /* Main Content Background */
-  --surface-white: #ffffff;  /* White Cards */
+  /* Brand Palette (Social Split Play) */
+  --primary: #004598;
+  --on-primary: #ffffff;
+  --primary-container: #205dba;
+  --on-primary-container: #cedcff;
   
-  /* Text Colors */
-  --text-primary: #121212;
-  --text-secondary: #52525b; /* Zinc-600 for strictly >4.5:1 contrast against light rects */
-  --text-inverse: #ffffff;
-  --text-inverse-muted: #d4d4d8;
-
-  /* Solid equivalents for text/icons */
-  --color-green: #15803d;
-  --color-orange: #c2410c;
-  --color-purple: #4338ca;
-
-  /* Flat Pastel Card Backgrounds */
-  --bg-pastel-green: #c0dcb6;
-  --bg-pastel-orange: #fbd672;
-  --bg-pastel-purple: #e0e7ff; /* Lighter clean purple */
-
-  /* Shared */
-  --border-light: rgba(0, 0, 0, 0.06);
-  --border-glass: rgba(255, 255, 255, 0.4);
-  --radius-sm: 12px;
-  --radius-md: 20px;
-  --radius-lg: 28px;
+  --secondary: #535b8f;
+  --on-secondary: #ffffff;
+  --secondary-container: #bbc3fe;
+  --on-secondary-container: #474f82;
+  
+  --tertiary: #0e4f65;
+  --on-tertiary: #ffffff;
+  
+  --background: #fdf8ff;
+  --on-background: #232323;
+  
+  --surface: #fdf8ff;
+  --surface-variant: #e6e0ec;
+  --on-surface: #232323;
+  --on-surface-variant: #484554;
+  
+  --outline: #797585;
+  --outline-variant: #c9c4d6;
+  
+  /* Status Colors */
+  --positive: #10b981;
+  --negative: #f97316;
+  --error: #ba1a1a;
+  
+  /* Geometry & Spacing */
+  --radius-sm: 0.5rem;
+  --radius-md: 1rem;
+  --radius-lg: 1.5rem;
+  --radius-xl: 3rem;         /* Bubbly/Rounded corners */
   --radius-full: 9999px;
-
-  --shadow-subtle: 0 4px 24px -4px rgba(0, 0, 0, 0.04);
-  --shadow-elevated: 0 12px 32px -8px rgba(0, 0, 0, 0.08);
-  --shadow-inset: inset 0 2px 4px rgba(255, 255, 255, 0.6);
+  
+  /* Tinted Shadows */
+  --shadow-sm: 0 4px 12px rgba(0, 69, 152, 0.05);
+  --shadow-md: 0 8px 24px rgba(0, 69, 152, 0.1);
+  --shadow-lg: 0 20px 48px rgba(0, 69, 152, 0.15);
 }
 
 * {
   box-sizing: border-box;
   margin: 0;
   padding: 0;
+  -webkit-tap-highlight-color: transparent;
 }
 
 body {
-  font-family: 'Inter', sans-serif;
-  background-color: var(--bg-main);
-  color: var(--text-primary);
+  font-family: 'Public Sans', -apple-system, sans-serif;
+  background-color: var(--background);
+  color: var(--on-background);
   -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
+  line-height: 1.5;
+  overflow-x: hidden;
 }
 
-*:focus-visible {
-  outline: 2px solid var(--color-purple);
-  outline-offset: 2px;
-}
-
-a {
-  text-decoration: none;
-  color: inherit;
+h1, h2, h3, h4 {
+  font-family: 'Manrope', sans-serif;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  color: var(--on-surface);
 }
 
 button {
@@ -64,65 +72,81 @@ button {
   cursor: pointer;
   border: none;
   background: none;
+  transition: all 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
 }
 
-/* App Shell Structure */
+button:active {
+  transform: scale(0.96);
+}
+
+a {
+  text-decoration: none;
+  color: inherit;
+}
+
+/* Glassmorphism Utility */
+.glass {
+  background: rgba(255, 255, 255, 0.65);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+}
+
+.glass-dark {
+  background: rgba(28, 26, 35, 0.8);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+/* Balance Indicators */
+.text-positive { color: var(--positive); font-weight: 700; }
+.text-negative { color: var(--negative); font-weight: 700; }
+
+/* Global Card */
+.card {
+  background: var(--surface);
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--outline-variant);
+  box-shadow: var(--shadow-sm);
+  transition: all 0.2s ease;
+}
+
+.card:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-md);
+}
+
+/* Pill Shapes */
+.pill {
+  padding: 6px 16px;
+  border-radius: var(--radius-full);
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.pill-primary { background: var(--primary-container); color: var(--on-primary-container); }
+.pill-secondary { background: var(--secondary-container); color: var(--on-secondary-container); }
+
+/* Global Layout */
 .app-layout {
   display: flex;
   min-height: 100vh;
-  width: 100%;
+  background-color: var(--background);
 }
 
 .main-content {
   flex: 1;
-  padding: 32px;
-  margin-left: 260px; /* Space for desktop sidebar */
-  overflow-y: auto;
-  max-width: 1400px;
+  margin-left: 80px; /* Sidebar width */
+  padding: 48px 64px; /* Generous whitespace */
+  min-height: 100vh;
 }
 
-/* Mobile Constraints */
 @media (max-width: 1024px) {
   .main-content {
     margin-left: 0;
-    padding: 24px;
-    padding-bottom: 120px; /* Space for bottom nav */
+    padding: 32px 24px 100px; /* Space for BottomNav */
   }
-}
-
-@media (max-width: 768px) {
-  .main-content {
-    padding: 16px;
-    padding-bottom: 100px;
-    overflow-x: hidden; /* Prevent horizontal scroll */
-  }
-  
-  html, body {
-    overflow-x: hidden;
-  }
-}
-
-[data-theme='dark'] {
-  --bg-sidebar: #1a1a1a; /* Sidebar background */
-  --bg-main: #121212; /* Deep slate baseline */
-  --surface-white: #1e1e1e; /* Elevated card */
-  
-  --text-primary: #fdfbf9;
-  --text-secondary: #a3a19f;
-  
-  --border-light: rgba(255, 255, 255, 0.08);
-  --border-glass: rgba(255, 255, 255, 0.05);
-  
-  /* Flat Dark Mode Pastels (Deep saturation) */
-  --bg-pastel-green: #14532d;
-  --bg-pastel-orange: #713f12;
-  --bg-pastel-purple: #312e81;
-  
-  --color-green: #4ade80;
-  --color-orange: #fb923c;
-  --color-purple: #818cf8;
-
-  --shadow-subtle: 0 4px 20px rgba(0, 0, 0, 0.4);
-  --shadow-elevated: 0 12px 32px rgba(0, 0, 0, 0.6);
-  --shadow-inset: inset 0 1px 1px rgba(255, 255, 255, 0.02);
 }

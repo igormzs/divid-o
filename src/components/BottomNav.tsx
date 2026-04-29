@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useEffect, useState } from 'react';
-import { SquaresFour, Users, ChartPieSlice, UserPlus, GearSix } from '@phosphor-icons/react';
+import { Users, User, Bell, GearSix, Plus, ChartPie } from '@phosphor-icons/react';
 import styles from './Navigation.module.css';
 
 export default function BottomNav() {
@@ -13,31 +13,44 @@ export default function BottomNav() {
   useEffect(() => setMounted(true), []);
 
   const links = [
-    { href: '/', icon: <SquaresFour weight="fill" /> },
-    { href: '/groups', icon: <Users weight="fill" /> },
-    { href: '/activity', icon: <ChartPieSlice weight="fill" /> },
-    { href: '/friends', icon: <UserPlus weight="fill" /> },
-    { href: '/settings', icon: <GearSix weight="fill" /> },
+    { label: 'Friends', href: '/', icon: <User weight={pathname === '/' ? 'fill' : 'regular'} /> },
+    { label: 'Groups', href: '/groups', icon: <Users weight={pathname.startsWith('/groups') ? 'fill' : 'regular'} /> },
+    { label: 'Activity', href: '/activity', icon: <Bell weight={pathname === '/activity' ? 'fill' : 'regular'} /> },
+    { label: 'Account', href: '/account', icon: <GearSix weight={pathname === '/account' ? 'fill' : 'regular'} /> },
   ];
 
   if (!mounted) return null;
 
   return (
-    <nav className={styles.bottomNav}>
-      <div className={styles.bottomNavInner}>
-        {links.map(link => {
-          const isActive = pathname === link.href;
-          return (
-            <Link
-              key={link.href}
-              href={link.href}
-              className={`${styles.bottomNavItem} ${isActive ? styles.activeBottom : ''}`}
-            >
-              {link.icon}
-            </Link>
-          );
-        })}
+    <>
+      {/* Floating Action Button (FAB) */}
+      <div className={styles.fabContainer}>
+        <button 
+          className={styles.fab} 
+          onClick={() => window.dispatchEvent(new CustomEvent('open-expense-modal'))}
+          title="Add expense"
+        >
+          <Plus weight="bold" />
+        </button>
       </div>
-    </nav>
+
+      <nav className={styles.bottomNav}>
+        <div className={styles.bottomNavInner}>
+          {links.map(link => {
+            const isActive = pathname === link.href || (link.href === '/groups' && pathname.startsWith('/groups'));
+            return (
+              <Link
+                key={link.href}
+                href={link.href}
+                className={`${styles.bottomNavItem} ${isActive ? styles.activeBottom : ''}`}
+                title={link.label}
+              >
+                {link.icon}
+              </Link>
+            );
+          })}
+        </div>
+      </nav>
+    </>
   );
 }

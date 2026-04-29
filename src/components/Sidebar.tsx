@@ -2,86 +2,85 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { useTheme } from 'next-themes';
 import { useEffect, useState } from 'react';
 import { createClient } from '@/utils/supabase/client';
 import { 
-  SquaresFour, 
   Users, 
-  ChartPieSlice, 
-  UserPlus, 
+  User,
+  Bell, 
   GearSix, 
   SignOut, 
-  Moon, 
-  Sun,
-  Cube
+  Plus,
+  ChartPie
 } from '@phosphor-icons/react';
 import styles from './Navigation.module.css';
 
 export default function Sidebar() {
   const pathname = usePathname();
-  const { theme, setTheme } = useTheme();
-  const [mounted, setMounted] = useState(false);
+  const [user, setUser] = useState<{ first_name: string | null; last_name: string | null } | null>(null);
 
-  useEffect(() => setMounted(true), []);
+  useEffect(() => {
+    const supabase = createClient();
+    const fetchUser = async () => {
+      const { data: { user: authU } } = await supabase.auth.getUser();
+      if (authU) {
+        const { data: profile } = await supabase.from('users').select('first_name, last_name').eq('id', authU.id).maybeSingle();
+        setUser(profile);
+      }
+    };
+    fetchUser();
+  }, []);
 
   const links = [
-    { href: '/', label: 'Dashboard', icon: <SquaresFour weight="fill" /> },
-    { href: '/groups', label: 'Groups', icon: <Users weight="fill" /> },
-    { href: '/activity', label: 'Activity', icon: <ChartPieSlice weight="fill" /> },
-    { href: '/friends', label: 'Friends', icon: <UserPlus weight="fill" /> },
-    { href: '/settings', label: 'Settings', icon: <GearSix weight="fill" /> },
+    { href: '/', label: 'Friends', icon: <User weight={pathname === '/' ? 'fill' : 'regular'} /> },
+    { href: '/groups', label: 'Groups', icon: <Users weight={pathname.startsWith('/groups') ? 'fill' : 'regular'} /> },
+    { href: '/activity', label: 'Activity', icon: <Bell weight={pathname === '/activity' ? 'fill' : 'regular'} /> },
+    { href: '/account', label: 'Account', icon: <GearSix weight={pathname === '/account' ? 'fill' : 'regular'} /> },
   ];
 
   return (
     <aside className={styles.sidebar}>
-      <div className={styles.brand}>
-        <div className={styles.logoIcon}>
-          <svg width="18" height="18" viewBox="0 0 256 256" fill="currentColor">
-            <path d="M223.68,66.15,135.68,18a15.88,15.88,0,0,0-15.36,0l-88,48.17a16,16,0,0,0-8.32,14v95.64a16,16,0,0,0,8.32,14l88,48.17a15.88,15.88,0,0,0,15.36,0l88-48.17a16,16,0,0,0,8.32-14V80.18A16,16,0,0,0,223.68,66.15ZM128,120,47.65,76,128,32l80.35,44Zm8,99.64V133.83l80-43.78v85.76Z" />
-          </svg>
-        </div>
-        <h2>Divid-o</h2>
-      </div>
+      <Link href="/" className={styles.brand}>
+        <div className={styles.brandIcon}>D</div>
+      </Link>
 
-      <div className={styles.profile}>
-        <div className={styles.avatar}>IM</div>
-        <div className={styles.profileInfo}>
-          <p>Welcome Back,</p>
-          <h3>Igor Menezes</h3>
-        </div>
+      <div style={{ padding: '0 16px', marginBottom: '32px' }}>
+        <button 
+          className={styles.fab} 
+          onClick={() => window.dispatchEvent(new CustomEvent('open-expense-modal'))}
+          title="Add expense"
+        >
+          <Plus weight="bold" />
+        </button>
       </div>
 
       <nav className={styles.nav}>
         {links.map(link => {
-          const isActive = pathname === link.href;
+          const isActive = pathname === link.href || (link.href === '/groups' && pathname.startsWith('/groups'));
           return (
             <Link 
               key={link.href} 
               href={link.href} 
               className={`${styles.navItem} ${isActive ? styles.active : ''}`}
+              title={link.label}
             >
               <span className={styles.icon}>{link.icon}</span>
-              {link.label}
             </Link>
           );
         })}
       </nav>
 
       <div className={styles.logout}>
-        {mounted && (
-          <button className={styles.logoutBtn} onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}>
-            <span className={styles.icon}>{theme === 'dark' ? <Sun weight="fill" /> : <Moon weight="fill" />}</span>
-            {theme === 'dark' ? 'Light Mode' : 'Dark Mode'}
-          </button>
-        )}
-        <button className={styles.logoutBtn} onClick={async () => {
-          const supabase = createClient();
-          await supabase.auth.signOut();
-          window.location.href = '/login';
-        }}>
-          <span className={styles.icon}><SignOut weight="bold" /></span>
-          Log out
+        <button 
+          className={styles.logoutBtn} 
+          title="Log out"
+          onClick={async () => {
+            const supabase = createClient();
+            await supabase.auth.signOut();
+            window.location.href = '/auth/login';
+          }}
+        >
+          <SignOut weight="bold" />
         </button>
       </div>
     </aside>

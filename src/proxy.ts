@@ -29,11 +29,17 @@ export default async function proxy(request: NextRequest) {
 
   const { data: { user } } = await supabase.auth.getUser();
 
-  // Basic Route Protection
+  // Route protection logic
   const isAuthRoute = request.nextUrl.pathname.startsWith('/auth');
   const isHomeRoute = request.nextUrl.pathname === '/';
 
-  if (!isAuthRoute && !isHomeRoute && !user) {
+  if (!user && !isAuthRoute && !isHomeRoute) {
+    const url = request.nextUrl.clone();
+    url.pathname = '/auth/login';
+    return NextResponse.redirect(url);
+  }
+
+  if (user && isAuthRoute) {
     const url = request.nextUrl.clone();
     url.pathname = '/';
     return NextResponse.redirect(url);

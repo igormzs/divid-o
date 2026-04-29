@@ -1,272 +1,431 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import styles from './ExpenseForm.module.css';
-import { divideEquallyKeepRemainder, toCents, toDollars, divideByPercentages, validateExactAmounts } from '@/lib/centMath';
-import { Scan, Users, Calculator, Percent, UserPlus, Plus } from '@phosphor-icons/react';
+import { 
+  toCents, 
+  toDollars, 
+  splitEqually,
+  splitByExact,
+  UserBalance
+} from '@/lib/mathEngine';
+import { 
+  X,
+  Check
+} from '@phosphor-icons/react';
+import { createTypedClient } from '@/utils/supabase/client';
+import { toast } from 'sonner';
 
-type User = { id: string; name: string };
+type User = { id: string; name: string; email?: string };
 type Group = { id: string; name: string };
 
+const CURRENCIES = [
+  { code: 'USD', symbol: '$' },
+  { code: 'EUR', symbol: '€' },
+  { code: 'GBP', symbol: '£' },
+  { code: 'JPY', symbol: '¥' },
+  { code: 'CAD', symbol: '$' },
+  { code: 'AUD', symbol: '$' },
+  { code: 'CHF', symbol: 'Fr' },
+  { code: 'CNY', symbol: '¥' },
+  { code: 'HKD', symbol: '$' },
+  { code: 'NZD', symbol: '$' },
+  { code: 'SEK', symbol: 'kr' },
+  { code: 'KRW', symbol: '₩' },
+  { code: 'SGD', symbol: '$' },
+  { code: 'NOK', symbol: 'kr' },
+  { code: 'MXN', symbol: '$' },
+  { code: 'INR', symbol: '₹' },
+  { code: 'RUB', symbol: '₽' },
+  { code: 'ZAR', symbol: 'R' },
+  { code: 'TRY', symbol: '₺' },
+  { code: 'BRL', symbol: 'R$' },
+];
+
 interface ExpenseFormProps {
-  groupMembers: User[];
-  groups?: Group[];
-  onSave: (expenseData: {
-    description: string;
-    amount: number;
-    payerId: string;
-    groupId: string;
-    splits: { userId: string; amountOwed: number }[];
-    ghostUsers?: { id: string; name: string }[];
-  }) => void;
-  onCancel: () => void;
+  onClose: () => void;
+  onSuccess?: () => void;
+  preSelectedGroupId?: string;
+  editingExpenseId?: string;
 }
 
-export default function ExpenseForm({ groupMembers, groups = [], onSave, onCancel }: ExpenseFormProps) {
+export default function ExpenseForm({ 
+  onClose, 
+  onSuccess, 
+  preSelectedGroupId, 
+  editingExpenseId 
+}: ExpenseFormProps) {
+  const db = createTypedClient();
+  const currencyPickerRef = useRef<HTMLDivElement>(null);
+
   const [description, setDescription] = useState('');
   const [amountInput, setAmountInput] = useState('');
-  const [payerId, setPayerId] = useState(groupMembers[0]?.id || '');
-  const [groupId, setGroupId] = useState(groups[0]?.id || '');
-  const [splitType, setSplitType] = useState<'EQUALLY' | 'EXACT' | 'PERCENTAGE'>('EQUALLY');
+  const [payerId, setPayerId] = useState('');
+  const [groupId, setGroupId] = useState(preSelectedGroupId || '');
+  const [splitType, setSplitType] = useState<'EQUALLY' | 'EXACT'>('EQUALLY');
+  const [currency, setCurrency] = useState(CURRENCIES[0]);
+  const [showCurrencyPicker, setShowCurrencyPicker] = useState(false);
   
+  const [groups, setGroups] = useState<Group[]>([]);
+  const [allMembers, setAllMembers] = useState<User[]>([]);
+  const [selectedMemberIds, setSelectedMemberIds] = useState<Set<string>>(new Set());
   const [customInputs, setCustomInputs] = useState<Record<string, string>>({});
-  const [isScanning, setIsScanning] = useState(false);
+  const [showMoreOptions, setShowMoreOptions] = useState(false);
+  
   const [isSaving, setIsSaving] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+  const [authUser, setAuthUser] = useState<any>(null);
 
-  // Ghost Users
-  const [ghostUsers, setGhostUsers] = useState<User[]>([]);
-  const [newGhostName, setNewGhostName] = useState('');
-  const [showAddGhost, setShowAddGhost] = useState(false);
+  const loadInitialData = useCallback(async () => {
+    setIsLoading(true);
+    try {
+      const { data: { user: authU } } = await db.auth.getUser();
+      if (!authU) return;
+      setAuthUser(authU);
 
-  const activeMembers = [...groupMembers, ...ghostUsers];
+      const { data: myGroups } = await db.from('group_members').select('groups(id, name)').eq('user_id', authU.id);
+      const formattedGroups = (myGroups ?? []).map(g => (g as any).groups as Group).filter(Boolean);
+      setGroups(formattedGroups);
 
-  const rawValue = parseFloat(amountInput) || 0; 
-  const payerIndex = activeMembers.findIndex(u => u.id === payerId);
-  const actualPayerIndex = Math.max(0, payerIndex); // fallback
-
-  let calculatedSplits: number[] = [];
-  let isValid = false;
-  let validationError = '';
-
-  if (rawValue > 0) {
-    if (splitType === 'EQUALLY') {
-      calculatedSplits = divideEquallyKeepRemainder(rawValue, activeMembers.length, actualPayerIndex);
-      isValid = true;
-    } else if (splitType === 'PERCENTAGE') {
-      const percentages = activeMembers.map(m => parseFloat(customInputs[m.id]) || 0);
-      const sumPc = percentages.reduce((acc, val) => acc + val, 0);
-      if (Math.abs(sumPc - 100) < 0.01) {
-        calculatedSplits = divideByPercentages(rawValue, percentages, actualPayerIndex);
-        isValid = true;
-      } else {
-        validationError = `Percentages must add to 100% (currently ${sumPc.toFixed(1)}%)`;
+      const currentGroupId = groupId || formattedGroups[0]?.id;
+      if (currentGroupId) {
+        setGroupId(currentGroupId);
+        await fetchMembers(currentGroupId);
       }
-    } else if (splitType === 'EXACT') {
-      const exacts = activeMembers.map(m => parseFloat(customInputs[m.id]) || 0);
-      if (validateExactAmounts(rawValue, exacts)) {
-        calculatedSplits = exacts;
-        isValid = true;
+
+      if (editingExpenseId) {
+        const { data: exp } = await db.from('expenses').select('*, expense_splits(*)').eq('id', editingExpenseId).single();
+        if (exp) {
+          setDescription(exp.description);
+          setAmountInput((exp.amount / 100).toFixed(2));
+          setPayerId(exp.paid_by);
+          setGroupId(exp.group_id);
+          const curr = CURRENCIES.find(c => c.code === exp.currency) || CURRENCIES[0];
+          setCurrency(curr);
+          
+          const inputs: Record<string, string> = {};
+          const selected = new Set<string>();
+          exp.expense_splits.forEach((s: any) => { 
+            inputs[s.user_id] = (s.amount_owed / 100).toFixed(2); 
+            selected.add(s.user_id);
+          });
+          setCustomInputs(inputs);
+          setSelectedMemberIds(selected);
+          setSplitType('EQUALLY'); 
+          setShowMoreOptions(true);
+          await fetchMembers(exp.group_id);
+        }
       } else {
-        const sumAmounts = exacts.reduce((acc, val) => acc + val, 0);
-        validationError = `Exact amounts must add up precisely. Missing/Over: ${(rawValue - sumAmounts).toFixed(2)}`;
+        setPayerId(authU.id);
+      }
+    } catch (err) { console.error(err); }
+    finally { setIsLoading(false); }
+  }, [editingExpenseId, groupId]);
+
+  const fetchMembers = async (gid: string) => {
+    const { data: memData } = await db.from('group_members').select('users(id, email, first_name, last_name)').eq('group_id', gid);
+    const users = (memData ?? []).map(m => {
+      const u = (m as any).users;
+      return { 
+        id: u.id, 
+        name: `${u.first_name || ''} ${u.last_name || ''}`.trim(),
+        email: u.email
+      };
+    });
+    setAllMembers(users);
+    if (!editingExpenseId) {
+      setSelectedMemberIds(new Set(users.map(u => u.id)));
+    }
+  };
+
+  useEffect(() => { loadInitialData(); }, [loadInitialData]);
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (currencyPickerRef.current && !currencyPickerRef.current.contains(event.target as Node)) {
+        setShowCurrencyPicker(false);
+      }
+    };
+    if (showCurrencyPicker) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [showCurrencyPicker]);
+
+  const toggleMember = (id: string) => {
+    const newSet = new Set(selectedMemberIds);
+    if (newSet.has(id)) {
+      newSet.delete(id);
+    } else {
+      newSet.add(id);
+    }
+    setSelectedMemberIds(newSet);
+  };
+
+  const totalCents = toCents(amountInput);
+  const activeIds = Array.from(selectedMemberIds);
+  let calculatedSplits: UserBalance[] = [];
+  let isValid = false;
+
+  if (totalCents > 0 && activeIds.length > 0) {
+    if (splitType === 'EQUALLY') {
+      calculatedSplits = splitEqually(totalCents, activeIds, payerId);
+      isValid = true;
+    } else if (splitType === 'EXACT') {
+      const exacts: Record<string, number> = {};
+      activeIds.forEach(id => exacts[id] = toCents(customInputs[id]) || 0);
+      const sumCents = Object.values(exacts).reduce((acc, val) => acc + val, 0);
+      if (sumCents === totalCents) {
+        calculatedSplits = splitByExact(totalCents, activeIds, exacts);
+        isValid = true;
       }
     }
   }
 
-  const handleCustomInputChange = (userId: string, val: string) => {
-    setCustomInputs(prev => ({ ...prev, [userId]: val }));
-  };
-
-  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files && e.target.files[0]) {
-      setIsScanning(true);
-      setTimeout(() => {
-        setDescription('Dinner at Olive Garden');
-        setAmountInput('145.82');
-        setIsScanning(false);
-      }, 1500);
-    }
-  };
-
-  const handleCreateGhostUser = () => {
-    if (!newGhostName.trim()) return;
-    const newGhost: User = { id: crypto.randomUUID(), name: newGhostName.trim() };
-    setGhostUsers(prev => [...prev, newGhost]);
-    setNewGhostName('');
-    setShowAddGhost(false);
-  };
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!description || rawValue <= 0 || !isValid) return;
-    if (!groupId) {
-      return;
-    }
-
+    if (!description || totalCents <= 0 || !isValid) return;
     setIsSaving(true);
-    const totalCents = toCents(rawValue);
-    const finalAmount = toDollars(totalCents);
+    try {
+      const expenseBody = { 
+        description, 
+        amount: totalCents, 
+        paid_by: payerId, 
+        group_id: groupId,
+        currency: currency.code
+      };
+      let currentExpenseId = editingExpenseId;
 
-    await onSave({
-      description,
-      amount: finalAmount,
-      payerId,
-      groupId,
-      splits: activeMembers.map((m, i) => ({
-        userId: m.id,
-        amountOwed: calculatedSplits[i] || 0,
-      })),
-      ghostUsers: ghostUsers.length > 0 ? ghostUsers : undefined,
-    });
+      if (editingExpenseId) {
+        await db.from('expenses').update(expenseBody).eq('id', editingExpenseId);
+      } else {
+        const { data: newExp, error } = await db.from('expenses').insert(expenseBody).select().single();
+        if (error) throw error;
+        currentExpenseId = newExp.id;
+      }
 
-    setIsSaving(false);
+      if (editingExpenseId) await db.from('expense_splits').delete().eq('expense_id', editingExpenseId);
+
+      const splitRows = calculatedSplits.map((split) => ({
+        expense_id: currentExpenseId!,
+        user_id: split.userId,
+        amount_owed: split.amount,
+      }));
+
+      await db.from('expense_splits').insert(splitRows);
+      toast.success('Expense saved!');
+      if (onSuccess) onSuccess();
+      onClose();
+    } catch (err: any) { toast.error(err.message); }
+    finally { setIsSaving(false); }
   };
 
+  const isOneOnOne = allMembers.length === 2;
+  const otherMember = allMembers.find(m => m.id !== authUser?.id);
+
+  const getQuickOption = (opt: number) => {
+    const meId = authUser?.id;
+    const themId = otherMember?.id;
+    if (!meId || !themId) return false;
+
+    if (opt === 1) return payerId === meId && selectedMemberIds.size === 2;
+    if (opt === 2) return payerId === meId && selectedMemberIds.size === 1 && selectedMemberIds.has(themId);
+    if (opt === 3) return payerId === themId && selectedMemberIds.size === 2;
+    if (opt === 4) return payerId === themId && selectedMemberIds.size === 1 && selectedMemberIds.has(meId);
+    return false;
+  };
+
+  const handleQuickSelect = (opt: number) => {
+    const meId = authUser?.id;
+    const themId = otherMember?.id;
+    if (!meId || !themId) return;
+
+    setSplitType('EQUALLY');
+    if (opt === 1) { setPayerId(meId); setSelectedMemberIds(new Set([meId, themId])); }
+    if (opt === 2) { setPayerId(meId); setSelectedMemberIds(new Set([themId])); }
+    if (opt === 3) { setPayerId(themId); setSelectedMemberIds(new Set([meId, themId])); }
+    if (opt === 4) { setPayerId(themId); setSelectedMemberIds(new Set([meId])); }
+  };
+
+  if (isLoading) return null;
+
   return (
-    <div className={styles.overlay}>
-      <form className={styles.formContainer} onSubmit={handleSubmit}>
-        <div className={styles.header}>
-          <button type="button" onClick={onCancel} className={styles.cancelBtn}>Cancel</button>
-          <h3 className={styles.title}>Add Expense</h3>
-          <button type="submit" className={styles.saveBtn} disabled={!isValid || !description || !groupId || isSaving}>
-            {isSaving ? 'Saving…' : 'Save'}
-          </button>
-        </div>
+    <div className={styles.overlay} onClick={(e) => e.target === e.currentTarget && onClose()}>
+      <div className={styles.modal}>
+        
+        <header className={styles.header}>
+          <button onClick={onClose} className={styles.closeBtn}><X size={20} weight="bold" /></button>
+        </header>
 
-        {groups.length > 0 && (
-          <div className={styles.inputGroup}>
-            <label>Group</label>
-            <select className={styles.select} value={groupId} onChange={e => setGroupId(e.target.value)}>
-              {groups.map(g => (
-                <option key={g.id} value={g.id}>{g.name}</option>
-              ))}
-            </select>
-          </div>
-        )}
-
-        <div className={styles.ocrSection}>
-          <label className={`${styles.ocrBtn} ${isScanning ? styles.scanning : ''}`}>
-            <input 
-              type="file" 
-              accept="image/*" 
-              capture="environment" 
-              onChange={handleImageUpload} 
-              style={{ display: 'none' }} 
-              disabled={isScanning} 
-            />
-            <Scan weight="bold" className={styles.ocrIcon} /> 
-            {isScanning ? 'Scanning Receipt...' : 'Smart Scan Receipt'}
-          </label>
-        </div>
-
-        <div className={styles.inputGroup}>
-          <label>Description</label>
-          <input 
-            autoFocus={!isScanning}
-            className={styles.input} 
-            type="text" 
-            placeholder="e.g. Dinner at Mario's" 
-            value={description}
-            onChange={(e) => setDescription(e.target.value)}
-          />
-        </div>
-
-        <div className={styles.inputGroup}>
-          <label>Total Amount</label>
-          <div className={styles.amountWrapper}>
-            <span className={styles.currencySymbol}>$</span>
-            <input 
-              className={`${styles.input} ${styles.amountInput}`} 
-              type="number" 
-              step="0.01"
-              placeholder="0.00" 
-              value={amountInput}
-              onChange={(e) => setAmountInput(e.target.value)}
-            />
-          </div>
-        </div>
-
-        <div className={styles.inputGroup}>
-          <label>Paid by</label>
-          <select className={styles.select} value={payerId} onChange={e => {
-             // If payer is empty because group members was 0 and we added a ghost user, handle it gracefully
-             setPayerId(e.target.value);
-          }}>
-            {activeMembers.map(m => (
-              <option key={m.id} value={m.id}>{m.name}</option>
-            ))}
-          </select>
-        </div>
-
-        {amountInput && Number(amountInput) > 0 && (
-          <div className={styles.splitSection}>
-            <div className={styles.splitToggle}>
-              <button type="button" className={`${styles.toggleBtn} ${splitType === 'EQUALLY' ? styles.activeToggle : ''}`} onClick={() => setSplitType('EQUALLY')}><Users weight="bold"/> Equally</button>
-              <button type="button" className={`${styles.toggleBtn} ${splitType === 'EXACT' ? styles.activeToggle : ''}`} onClick={() => setSplitType('EXACT')}><Calculator weight="bold"/> Exact</button>
-              <button type="button" className={`${styles.toggleBtn} ${splitType === 'PERCENTAGE' ? styles.activeToggle : ''}`} onClick={() => setSplitType('PERCENTAGE')}><Percent weight="bold"/> Percent</button>
+        <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+          
+          {/* 1. Description Card (TOP) */}
+          <div className={styles.card}>
+            <div className={styles.inputGroup}>
+              <label className={styles.label}>Description</label>
+              <input 
+                className={styles.inputField}
+                placeholder="What was it for?" 
+                value={description} 
+                onChange={e => setDescription(e.target.value)} 
+                autoFocus
+              />
             </div>
+          </div>
 
-            {!isValid && validationError && (
-              <div className={styles.validationError}>{validationError}</div>
-            )}
-
-            <ul className={styles.splitList}>
-              {activeMembers.map((m, i) => (
-                <li key={m.id} className={styles.splitItem}>
-                  <span className={styles.splitName}>
-                    {m.name} {m.id === payerId ? <span className={styles.payerBadge}>(Payer)</span> : ''}
-                  </span>
-
-                  {splitType === 'EQUALLY' ? (
-                     <span className={styles.splitAmount}>${calculatedSplits[i]?.toFixed(2) || '0.00'}</span>
-                  ) : (
-                     <div className={styles.customInputWrapper}>
-                       <input 
-                          type="number"
-                          step="0.01"
-                          className={styles.customSplitInput}
-                          placeholder="0"
-                          value={customInputs[m.id] || ''}
-                          onChange={(e) => handleCustomInputChange(m.id, e.target.value)}
-                       />
-                       <span className={styles.customSuffix}>{splitType === 'PERCENTAGE' ? '%' : '$'}</span>
-                     </div>
+          {/* 2. Amount Card (MIDDLE) */}
+          <div className={styles.card}>
+            <div className={styles.inputGroup}>
+              <label className={styles.label}>Amount</label>
+              <div className={styles.amountWrapper}>
+                <span className={styles.currency} onClick={(e) => { e.stopPropagation(); setShowCurrencyPicker(!showCurrencyPicker); }}>
+                  {currency.symbol}
+                  {showCurrencyPicker && (
+                    <div className={styles.currencyPicker} ref={currencyPickerRef}>
+                      {CURRENCIES.map(c => (
+                        <div key={c.code} className={`${styles.currencyItem} ${currency.code === c.code ? styles.active : ''}`} onClick={(e) => { e.stopPropagation(); setCurrency(c); setShowCurrencyPicker(false); }}>
+                          <span className={styles.currencySym}>{c.symbol}</span>
+                          <span className={styles.currencyCode}>{c.code}</span>
+                        </div>
+                      ))}
+                    </div>
                   )}
-                </li>
-              ))}
-            </ul>
-
-            <div className={styles.addGhostUserSection}>
-              {!showAddGhost ? (
-                <button type="button" className={styles.addGhostBtn} onClick={() => setShowAddGhost(true)}>
-                  <UserPlus weight="bold" /> Add a person to this split
-                </button>
-              ) : (
-                <div className={styles.ghostInputRow}>
-                  <input 
-                    type="text" 
-                    className={styles.input} 
-                    placeholder="Enter name (e.g. John)" 
-                    value={newGhostName}
-                    onChange={(e) => setNewGhostName(e.target.value)}
-                    autoFocus
-                  />
-                  <button type="button" className={styles.ghostAddAction} onClick={handleCreateGhostUser} disabled={!newGhostName.trim()}>
-                    <Plus weight="bold" /> Add
-                  </button>
-                  <button type="button" className={styles.ghostCancelAction} onClick={() => setShowAddGhost(false)}>
-                    Cancel
-                  </button>
-                </div>
-              )}
+                </span>
+                <input 
+                  className={styles.amountInput}
+                  type="number" step="0.01" 
+                  placeholder="0.00" 
+                  value={amountInput} 
+                  onChange={e => setAmountInput(e.target.value)} 
+                />
+              </div>
             </div>
-            
-            {(splitType === 'EQUALLY' || splitType === 'PERCENTAGE') && isValid && (
-              <p className={styles.ruleNote}>*Remainder pennies are cleanly assigned to the Payer</p>
-            )}
           </div>
-        )}
-      </form>
+
+          {/* 3. Split Options (BOTTOM) */}
+          {!showMoreOptions && isOneOnOne ? (
+            <div>
+              <h3 className={styles.sectionTitle}>Como essa despesa foi dividida?</h3>
+              <div className={styles.quickSplitList} style={{ marginTop: '12px' }}>
+                <div className={`${styles.quickOption} ${getQuickOption(1) ? styles.active : ''}`} onClick={() => handleQuickSelect(1)}>
+                  <div className={styles.quickAvatars}>
+                    <div className={`${styles.quickAvatar} ${styles.primary}`}>ME</div>
+                    <div className={styles.quickAvatar}>{otherMember?.name.substring(0,2).toUpperCase()}</div>
+                  </div>
+                  <div className={styles.quickDetails}>
+                    <span className={styles.quickTitle}>Você pagou, dividir igualmente.</span>
+                    <span className={`${styles.quickSub} ${styles.positive}`}>
+                      {otherMember?.name} deve a você {currency.symbol} {amountInput ? (parseFloat(amountInput)/2).toFixed(2) : '0.00'}
+                    </span>
+                  </div>
+                  {getQuickOption(1) && <Check size={20} weight="bold" className={styles.checkIcon} />}
+                </div>
+
+                <div className={`${styles.quickOption} ${getQuickOption(2) ? styles.active : ''}`} onClick={() => handleQuickSelect(2)}>
+                  <div className={styles.quickAvatars}>
+                    <div className={`${styles.quickAvatar} ${styles.primary}`}>ME</div>
+                    <div className={styles.quickAvatar}>{otherMember?.name.substring(0,2).toUpperCase()}</div>
+                  </div>
+                  <div className={styles.quickDetails}>
+                    <span className={styles.quickTitle}>Você tem o valor total a receber.</span>
+                    <span className={`${styles.quickSub} ${styles.positive}`}>
+                      {otherMember?.name} deve a você {currency.symbol} {amountInput ? parseFloat(amountInput).toFixed(2) : '0.00'}
+                    </span>
+                  </div>
+                  {getQuickOption(2) && <Check size={20} weight="bold" className={styles.checkIcon} />}
+                </div>
+
+                <div className={`${styles.quickOption} ${getQuickOption(3) ? styles.active : ''}`} onClick={() => handleQuickSelect(3)}>
+                  <div className={styles.quickAvatars}>
+                    <div className={styles.quickAvatar}>{otherMember?.name.substring(0,2).toUpperCase()}</div>
+                    <div className={`${styles.quickAvatar} ${styles.primary}`}>ME</div>
+                  </div>
+                  <div className={styles.quickDetails}>
+                    <span className={styles.quickTitle}>{otherMember?.name} pagou, dividir igualmente.</span>
+                    <span className={`${styles.quickSub} ${styles.negative}`}>
+                      Você deve {currency.symbol} {amountInput ? (parseFloat(amountInput)/2).toFixed(2) : '0.00'} a {otherMember?.name}
+                    </span>
+                  </div>
+                  {getQuickOption(3) && <Check size={20} weight="bold" className={styles.checkIcon} />}
+                </div>
+
+                <div className={`${styles.quickOption} ${getQuickOption(4) ? styles.active : ''}`} onClick={() => handleQuickSelect(4)}>
+                  <div className={styles.quickAvatars}>
+                    <div className={styles.quickAvatar}>{otherMember?.name.substring(0,2).toUpperCase()}</div>
+                    <div className={`${styles.quickAvatar} ${styles.primary}`}>ME</div>
+                  </div>
+                  <div className={styles.quickDetails}>
+                    <span className={styles.quickTitle}>{otherMember?.name} tem o valor total a receber.</span>
+                    <span className={`${styles.quickSub} ${styles.negative}`}>
+                      Você deve {currency.symbol} {amountInput ? parseFloat(amountInput).toFixed(2) : '0.00'} a {otherMember?.name}
+                    </span>
+                  </div>
+                  {getQuickOption(4) && <Check size={20} weight="bold" className={styles.checkIcon} />}
+                </div>
+
+                <button type="button" className={styles.moreOptionsBtn} onClick={() => setShowMoreOptions(true)}>
+                  Mais opções
+                </button>
+              </div>
+            </div>
+          ) : (
+            <>
+              <div className={styles.card}>
+                <div className={styles.paidByCard}>
+                  <label className={styles.label}>Group & Payer</label>
+                  <select className={styles.selectBox} value={groupId} onChange={e => { setGroupId(e.target.value); fetchMembers(e.target.value); }}>
+                    {groups.map(g => <option key={g.id} value={g.id}>{g.name}</option>)}
+                  </select>
+                  <div className={styles.paidByRow} style={{ marginTop: '8px' }}>
+                    <div className={styles.userBadge}>
+                      <div className={styles.avatar}>{payerId === authUser?.id ? 'ME' : allMembers.find(m => m.id === payerId)?.name.substring(0,2).toUpperCase()}</div>
+                      <span className={styles.userName}>{payerId === authUser?.id ? 'You' : allMembers.find(m => m.id === payerId)?.name}</span>
+                    </div>
+                    <select className={styles.changeBtn} value={payerId} onChange={(e) => setPayerId(e.target.value)} style={{ appearance: 'none', cursor: 'pointer', textAlign: 'center' }}>
+                      {allMembers.map(m => <option key={m.id} value={m.id}>{m.id === authUser?.id ? 'You' : m.name}</option>)}
+                    </select>
+                  </div>
+                </div>
+              </div>
+
+              <div>
+                <h3 className={styles.sectionTitle}>Split with friends</h3>
+                <div className={styles.friendList} style={{ marginTop: '16px' }}>
+                  {allMembers.map(m => {
+                    const isSelected = selectedMemberIds.has(m.id);
+                    return (
+                      <div key={m.id} className={`${styles.friendCard} ${isSelected ? styles.selected : ''}`} onClick={() => toggleMember(m.id)}>
+                        <div className={styles.friendInfo}>
+                          <div className={styles.friendAvatar}>{m.id === authUser?.id ? 'ME' : m.name.substring(0, 2).toUpperCase()}</div>
+                          <div className={styles.friendDetails}>
+                            <span className={styles.friendName}>{m.id === authUser?.id ? 'You' : m.name}</span>
+                            {m.email && <span className={styles.friendEmail}>{m.email}</span>}
+                          </div>
+                        </div>
+                        <div className={`${styles.checkbox} ${isSelected ? styles.checked : ''}`}>{isSelected && <Check size={16} weight="bold" />}</div>
+                      </div>
+                    );
+                  })}
+                </div>
+                {isOneOnOne && (
+                  <button type="button" className={styles.moreOptionsBtn} onClick={() => setShowMoreOptions(false)}>
+                    Show quick options
+                  </button>
+                )}
+              </div>
+            </>
+          )}
+
+          <button 
+            type="submit"
+            className={styles.submitBtn} 
+            disabled={!isValid || !description || isSaving || activeIds.length === 0}
+          >
+            {isSaving ? 'Saving...' : 'Split Now'}
+          </button>
+        </form>
+
+      </div>
     </div>
   );
 }

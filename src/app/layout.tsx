@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from 'next';
 import './globals.css';
 import Sidebar from '@/components/Sidebar';
 import BottomNav from '@/components/BottomNav';
+import GlobalModalManager from '@/components/GlobalModalManager';
 import { ThemeProvider } from '@/components/ThemeProvider';
 import { Toaster } from 'sonner';
 
@@ -29,6 +30,7 @@ export default function RootLayout({
           <Toaster richColors position="top-center" toastOptions={{ style: { fontFamily: 'Inter, sans-serif' } }} />
           <div className="app-layout">
             <Sidebar />
+            <GlobalModalManager />
             <main className="main-content">
               {children}
             </main>

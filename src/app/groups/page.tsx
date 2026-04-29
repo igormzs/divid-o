@@ -1,14 +1,13 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { Users, MagnifyingGlass, Plus, X } from '@phosphor-icons/react';
+import { Users, Plus, X, MagnifyingGlass, FunnelSimple, CaretRight } from '@phosphor-icons/react';
 import styles from './page.module.css';
 import Link from 'next/link';
-import LoginModal from "@/components/LoginModal";
 import { createTypedClient } from '@/utils/supabase/client';
 import { toast } from 'sonner';
 import type { Tables } from '@/types/database';
-import { toCents, toDollars } from '@/lib/centMath';
+import { toCents, toDollars } from '@/lib/mathEngine';
 
 type Group = Tables<'groups'>;
 type GroupMemberRow = Tables<'group_members'>;
@@ -18,283 +17,235 @@ type SettlementRow = Tables<'settlements'>;
 type GroupWithBalance = Group & {
   memberCount: number;
   balance: number;
-  lastActive: string;
 };
-
-function formatRelativeTime(dateStr: string | null): string {
-  if (!dateStr) return 'Unknown';
-  const diff = Date.now() - new Date(dateStr).getTime();
-  const mins = Math.floor(diff / 60000);
-  if (mins < 2) return 'Just now';
-  if (mins < 60) return `${mins} mins ago`;
-  const hrs = Math.floor(mins / 60);
-  if (hrs < 24) return `${hrs} hr${hrs > 1 ? 's' : ''} ago`;
-  const days = Math.floor(hrs / 24);
-  if (days < 7) return `${days} day${days > 1 ? 's' : ''} ago`;
-  return new Date(dateStr).toLocaleDateString();
-}
 
 const db = createTypedClient();
 
 export default function GroupsPage() {
   const [groups, setGroups] = useState<GroupWithBalance[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [authUser, setAuthUser] = useState<any>(null);
-  const [isInitializing, setIsInitializing] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [showNewGroup, setShowNewGroup] = useState(false);
   const [newGroupName, setNewGroupName] = useState('');
-  const [newGroupDesc, setNewGroupDesc] = useState('');
+  const [guestName, setGuestName] = useState('');
   const [isCreating, setIsCreating] = useState(false);
 
   const loadGroups = useCallback(async () => {
     setIsLoading(true);
     try {
       const { data: { user } } = await db.auth.getUser();
-      if (!user) {
-         setAuthUser(null);
-         setIsInitializing(false);
-         setIsLoading(false);
-         return;
-      }
-      setAuthUser(user);
-      setIsInitializing(false);
+      if (!user) return;
 
-      const { data: memberRows } = await db
-        .from('group_members')
-        .select('group_id, groups(*)')
-        .eq('user_id', user.id);
+      const { data: myMemberships } = await db.from('group_members').select('group_id').eq('user_id', user.id);
+      const groupIds = ((myMemberships ?? []) as GroupMemberRow[]).map(r => r.group_id);
+      if (groupIds.length === 0) { setGroups([]); return; }
 
-      const userGroups: Group[] = ((memberRows ?? []) as (GroupMemberRow & { groups: Group | null })[])
-        .map(r => r.groups)
-        .filter(Boolean) as Group[];
+      const { data: allGroups } = await db.from('groups').select('*').in('id', groupIds);
+      const { data: allMembers } = await db.from('group_members').select('group_id').in('group_id', groupIds);
+      const { data: allExpenses } = await db.from('expenses').select('*, expense_splits(*)').in('group_id', groupIds);
+      const { data: allSettlements } = await db.from('settlements').select('*').in('group_id', groupIds).eq('status', 'completed');
 
-      if (userGroups.length === 0) {
-        setGroups([]);
-        return;
-      }
+      const enriched: GroupWithBalance[] = ((allGroups ?? []) as Group[]).map(group => {
+        const memberCount = (allMembers ?? []).filter(m => m.group_id === group.id).length;
+        const expenses = (allExpenses ?? []).filter(e => e.group_id === group.id) as (ExpenseRow & { expense_splits: any[] })[];
+        const settlements = (allSettlements ?? []).filter(s => s.group_id === group.id) as SettlementRow[];
 
-      const groupIds = userGroups.map(g => g.id);
-
-      const { data: allMembers } = await db
-        .from('group_members')
-        .select('group_id, user_id')
-        .in('group_id', groupIds);
-
-      const { data: expenses } = await db
-        .from('expenses')
-        .select('id, group_id, paid_by, amount, created_at, expense_splits(user_id, amount_owed)')
-        .in('group_id', groupIds)
-        .order('created_at', { ascending: false });
-
-      const { data: settlements } = await db
-        .from('settlements')
-        .select('id, group_id, paid_by, paid_to, amount, created_at')
-        .in('group_id', groupIds)
-        .eq('status', 'completed');
-
-      const typedExpenses = (expenses ?? []) as (ExpenseRow & { expense_splits: { user_id: string; amount_owed: number }[] | null })[];
-      const typedSettlements = (settlements ?? []) as SettlementRow[];
-
-      const groupsWithBalance: GroupWithBalance[] = userGroups.map(group => {
-        const groupExpenses = typedExpenses.filter(e => e.group_id === group.id);
-        const groupSettlements = typedSettlements.filter(s => s.group_id === group.id);
-
-        let owedToMe = 0;
-        let iOwe = 0;
-
-        for (const expense of groupExpenses) {
-          const splits = expense.expense_splits ?? [];
-          if (expense.paid_by === user.id) {
-            for (const split of splits) {
-              if (split.user_id !== user.id) owedToMe += Number(split.amount_owed);
-            }
+        let balance = 0;
+        for (const exp of expenses) {
+          if (exp.paid_by === user.id) {
+            const totalOwedToMe = exp.expense_splits?.reduce((acc, s) => s.user_id !== user.id ? acc + Number(s.amount_owed) : acc, 0) ?? 0;
+            balance += totalOwedToMe;
           } else {
-            const mySplit = splits.find(s => s.user_id === user.id);
-            if (mySplit) iOwe += Number(mySplit.amount_owed);
+            const mySplit = exp.expense_splits?.find(s => s.user_id === user.id);
+            if (mySplit) balance -= Number(mySplit.amount_owed);
           }
         }
 
-        for (const s of groupSettlements) {
-          if (s.paid_by === user.id) iOwe -= Number(s.amount);
-          if (s.paid_to === user.id) owedToMe -= Number(s.amount);
+        for (const s of settlements) {
+          if (s.paid_by === user.id) balance -= Number(s.amount);
+          if (s.paid_to === user.id) balance += Number(s.amount);
         }
-
-        const memberCount = ((allMembers ?? []) as GroupMemberRow[]).filter(m => m.group_id === group.id).length;
-        const latestExpense = groupExpenses[0];
 
         return {
           ...group,
           memberCount,
-          balance: toDollars(toCents(owedToMe) - toCents(iOwe)),
-          lastActive: latestExpense
-            ? formatRelativeTime(latestExpense.created_at)
-            : formatRelativeTime(group.created_at),
+          balance: toDollars(balance),
         };
       });
 
-      setGroups(groupsWithBalance);
+      setGroups(enriched);
     } catch (err) {
-      console.error('Groups load error:', err);
-      toast.error('Groups Error: ' + (err instanceof Error ? err.message : 'Unknown error'));
+      console.error(err);
     } finally {
       setIsLoading(false);
     }
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  }, []);
 
-  useEffect(() => { loadGroups(); }, [loadGroups]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { loadGroups(); }, [loadGroups]);
 
   const handleCreateGroup = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newGroupName.trim()) return;
     setIsCreating(true);
-
     try {
       const { data: { user } } = await db.auth.getUser();
       if (!user) return;
 
-      const { data: group, error: groupErr } = await db
-        .from('groups')
-        .insert({ name: newGroupName.trim(), description: newGroupDesc.trim() || null, created_by: user.id })
-        .select()
-        .single();
+      const { data: group, error: groupErr } = await db.from('groups').insert({
+        name: newGroupName.trim(),
+        created_by: user.id
+      }).select().single();
 
-      if (groupErr || !group) throw groupErr || new Error('Failed to create group');
+      if (groupErr) throw groupErr;
 
-      const { error: memberErr } = await db
-        .from('group_members')
-        .insert({ group_id: group.id, user_id: user.id });
+      const { error: memberErr } = await db.from('group_members').insert({
+        group_id: group.id,
+        user_id: user.id
+      });
 
       if (memberErr) throw memberErr;
+      
+      // Add Guest if name provided
+      if (guestName.trim()) {
+        const guestId = crypto.randomUUID();
+        // Create Guest User
+        const { error: guestUserErr } = await db.from('users').insert({
+          id: guestId,
+          first_name: guestName.trim(),
+          is_guest: true
+        } as any); // cast to any because TS types might not be updated yet
+        
+        if (guestUserErr) throw guestUserErr;
+        
+        // Add Guest to Group
+        const { error: guestMemberErr } = await db.from('group_members').insert({
+          group_id: group.id,
+          user_id: guestId
+        });
+        
+        if (guestMemberErr) throw guestMemberErr;
+      }
 
-      toast.success(`Group "${group.name}" created!`);
+      toast.success('Group created!');
       setShowNewGroup(false);
       setNewGroupName('');
-      setNewGroupDesc('');
-      await loadGroups();
+      setGuestName('');
+      loadGroups();
     } catch (err: any) {
-      console.error(err);
-      if (err.message?.includes('users_id_fkey')) {
-        toast.error('Database configuration error: Please run the SQL fix script to support this action.');
-      } else {
-        toast.error(err.message || 'Error creating group');
-      }
+      toast.error(err.message);
     } finally {
       setIsCreating(false);
     }
   };
+
+  const totalBalance = groups.reduce((acc, g) => acc + g.balance, 0);
 
   const filtered = groups.filter(g =>
     g.name.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
   return (
-    <>
-    {(!authUser && !isInitializing) && <LoginModal />}
-
-    {showNewGroup && (
-      <div className={styles.modalOverlay}>
-        <div className={styles.modal}>
-          <div className={styles.modalHeader}>
-            <h2>New Group</h2>
-            <button onClick={() => setShowNewGroup(false)} className={styles.closeBtn}><X weight="bold" /></button>
-          </div>
-          <form onSubmit={handleCreateGroup} className={styles.modalForm}>
-            <div className={styles.modalField}>
-              <label>Group Name *</label>
-              <input
-                type="text"
-                className={styles.modalInput}
-                placeholder="e.g. Apartment 4B"
-                value={newGroupName}
-                onChange={e => setNewGroupName(e.target.value)}
-                autoFocus
-                required
-              />
-            </div>
-            <div className={styles.modalField}>
-              <label>Description (optional)</label>
-              <input
-                type="text"
-                className={styles.modalInput}
-                placeholder="What's this group for?"
-                value={newGroupDesc}
-                onChange={e => setNewGroupDesc(e.target.value)}
-              />
-            </div>
-            <button type="submit" className={styles.createBtn} disabled={isCreating || !newGroupName.trim()}>
-              {isCreating ? 'Creating…' : 'Create Group'}
-            </button>
-          </form>
-        </div>
-      </div>
-    )}
-
     <div className={styles.container}>
-
       <header className={styles.header}>
-        <div>
-          <h1 className={styles.title}>Your Groups</h1>
-          <p className={styles.subtitle}>Manage shared expenses</p>
-        </div>
-        <div className={styles.headerActions}>
-          <div className={styles.searchBar}>
-            <span className={styles.searchIcon}><MagnifyingGlass weight="bold" /></span>
-            <input
-              type="text"
-              placeholder="Search groups"
-              value={searchQuery}
-              onChange={e => setSearchQuery(e.target.value)}
-            />
-          </div>
-          <button className={styles.newGroupBtn} onClick={() => setShowNewGroup(true)}>
-            <Plus weight="bold" /> New Group
+        <div className={styles.headerTop}>
+          <h1>Groups</h1>
+          <button className={styles.addGroupBtn} onClick={() => setShowNewGroup(true)}>
+            <Plus size={18} weight="bold" />
+            <span>New Group</span>
           </button>
+        </div>
+        <div className={styles.searchBar}>
+          <MagnifyingGlass className={styles.searchIcon} />
+          <input 
+            placeholder="Search groups..." 
+            value={searchQuery}
+            onChange={e => setSearchQuery(e.target.value)}
+          />
         </div>
       </header>
 
-      <div className={styles.groupsGrid}>
-        {isLoading && <p style={{ opacity: 0.6 }}>Loading…</p>}
-        {!isLoading && filtered.length === 0 && (
-          <div className={styles.emptyState}>
-            <div className={styles.emptyIcon}>
-              <Users weight="thin" size={80} />
-            </div>
-            <h2>No groups found</h2>
-            <p>{searchQuery ? 'No groups match your search.' : "You don't have any groups yet. Create one to start sharing expenses!"}</p>
-            {!searchQuery && (
-              <button className={styles.emptyActionBtn} onClick={() => setShowNewGroup(true)}>
-                <Plus weight="bold" /> Create Your First Group
-              </button>
-            )}
-          </div>
-        )}
-        {filtered.map((group) => (
-          <Link href={`/groups/${group.id}`} key={group.id} className={styles.groupCard}>
-            <div className={styles.cardHeader}>
-              <div className={styles.groupIcon}>
-                <Users weight="fill" />
-              </div>
-              <span className={styles.lastActive}>{group.lastActive}</span>
-            </div>
-            
-            <div className={styles.cardBody}>
-              <h3 className={styles.groupName}>{group.name}</h3>
-              <p className={styles.memberCount}>{group.memberCount} member{group.memberCount !== 1 ? 's' : ''}</p>
-            </div>
-
-            <div className={styles.cardFooter}>
-              <div className={styles.balanceInfo}>
-                <span className={styles.balanceLabel}>Your Balance</span>
-                <span className={`${styles.balanceAmount} ${group.balance > 0 ? styles.positive : group.balance < 0 ? styles.negative : styles.neutral}`}>
-                  {group.balance > 0 ? '+' : group.balance < 0 ? '-' : ''}${Math.abs(group.balance).toFixed(2)}
-                </span>
-              </div>
-            </div>
-          </Link>
-        ))}
+      <div className={styles.balanceSummary}>
+        <div className={styles.summaryInfo}>
+          <span className={styles.summaryLabel}>Total net balance</span>
+          <h2 className={`${styles.summaryAmount} ${totalBalance > 0 ? 'text-positive' : totalBalance < 0 ? 'text-negative' : ''}`}>
+            {totalBalance > 0 ? '+' : totalBalance < 0 ? '-' : ''}${Math.abs(totalBalance).toFixed(2)}
+          </h2>
+        </div>
+        <button className={styles.filterBtn}><FunnelSimple weight="bold" /></button>
       </div>
+
+      <div className={styles.groupsList}>
+        {isLoading ? <p style={{ padding: '24px', opacity: 0.6 }}>Loading…</p> : 
+         filtered.length === 0 ? (
+           <div className={styles.emptyState}>
+             <div className={styles.emptyIcon}><Users /></div>
+             <p>No groups found.</p>
+             <button className={styles.emptyActionBtn} onClick={() => setShowNewGroup(true)}>
+               Create your first group
+             </button>
+           </div>
+         ) :
+         filtered.map((group) => (
+           <Link href={`/groups/${group.id}`} key={group.id} className={styles.groupItem}>
+             <div className={styles.groupIcon}>
+               <Users weight="duotone" />
+             </div>
+             <div className={styles.groupInfo}>
+               <h3 className={styles.groupName}>{group.name}</h3>
+               <p className={styles.balanceInfo}>
+                 {group.balance > 0 ? (
+                   <span className="text-positive">You are owed ${group.balance.toFixed(2)}</span>
+                 ) : group.balance < 0 ? (
+                   <span className="text-negative">You owe ${Math.abs(group.balance).toFixed(2)}</span>
+                 ) : (
+                   <span style={{ color: 'var(--text-muted)' }}>No pending balances</span>
+                 )}
+               </p>
+             </div>
+             <div className={styles.groupActions}>
+               <CaretRight size={20} weight="bold" style={{ color: 'var(--text-muted)' }} />
+             </div>
+           </Link>
+         ))
+        }
+      </div>
+
+      {showNewGroup && (
+        <div className={styles.modalOverlay}>
+          <div className={styles.modal}>
+            <div className={styles.modalHeader}>
+              <h2>Start a new group</h2>
+              <button onClick={() => setShowNewGroup(false)} className={styles.closeBtn}><X size={24} /></button>
+            </div>
+            <form onSubmit={handleCreateGroup}>
+              <div className={styles.modalField}>
+                <label>Group name</label>
+                <input 
+                  className={styles.modalInput} 
+                  value={newGroupName} 
+                  onChange={e => setNewGroupName(e.target.value)}
+                  placeholder="e.g. Vacation Trip"
+                  required
+                  autoFocus
+                />
+              </div>
+              <div className={styles.modalField}>
+                <label>Guest name (Optional)</label>
+                <input 
+                  className={styles.modalInput} 
+                  value={guestName} 
+                  onChange={e => setGuestName(e.target.value)}
+                  placeholder="e.g. John Doe"
+                />
+                <p className={styles.inputHint}>We'll add this person to the group automatically.</p>
+              </div>
+              <button type="submit" className={styles.createBtn} disabled={isCreating}>
+                {isCreating ? 'Creating…' : 'Create Group'}
+              </button>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
-    </>
   );
 }
