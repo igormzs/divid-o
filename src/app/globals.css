@@ -133,20 +133,20 @@ a {
 /* Global Layout */
 .app-layout {
   display: flex;
+  flex-direction: column;
   min-height: 100vh;
   background-color: var(--background);
 }
 
 .main-content {
   flex: 1;
-  margin-left: 80px; /* Sidebar width */
-  padding: 48px 64px; /* Generous whitespace */
+  margin-left: 0;
+  padding: 120px 64px 48px; /* Top padding for floating bar */
   min-height: 100vh;
 }
 
 @media (max-width: 1024px) {
   .main-content {
-    margin-left: 0;
     padding: 32px 24px 100px; /* Space for BottomNav */
   }
 }

@@ -24,15 +24,17 @@ export default function BottomNav() {
   return (
     <>
       {/* Floating Action Button (FAB) */}
-      <div className={styles.fabContainer}>
-        <button 
-          className={styles.fab} 
-          onClick={() => window.dispatchEvent(new CustomEvent('open-expense-modal'))}
-          title="Add expense"
-        >
-          <Plus weight="bold" />
-        </button>
-      </div>
+      {pathname !== '/account' && (
+        <div className={styles.fabContainer}>
+          <button 
+            className={styles.fab} 
+            onClick={() => window.dispatchEvent(new CustomEvent('open-expense-modal'))}
+            title="Add expense"
+          >
+            <Plus weight="bold" />
+          </button>
+        </div>
+      )}
 
       <nav className={styles.bottomNav}>
         <div className={styles.bottomNavInner}>
@@ -43,9 +45,9 @@ export default function BottomNav() {
                 key={link.href}
                 href={link.href}
                 className={`${styles.bottomNavItem} ${isActive ? styles.activeBottom : ''}`}
-                title={link.label}
               >
-                {link.icon}
+                <span className={styles.icon}>{link.icon}</span>
+                <span className={styles.label}>{link.label}</span>
               </Link>
             );
           })}

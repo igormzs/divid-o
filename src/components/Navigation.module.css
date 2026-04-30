@@ -1,142 +1,152 @@
-/* Sidebar (Desktop) */
+/* Floating Nav Bar (Desktop) */
 .sidebar {
-  width: 80px;
-  background: rgba(253, 248, 255, 0.8);
+  position: fixed;
+  top: 24px;
+  left: 50%;
+  transform: translateX(-50%);
+  height: auto;
+  width: calc(100% - 128px);
+  max-width: 800px;
+  background: rgba(255, 255, 255, 0.85);
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
-  border-right: 1px solid var(--outline-variant);
-  position: fixed;
-  top: 0;
-  left: 0;
-  height: 100vh;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  padding: 40px 0;
-  z-index: 100;
-}
-
-.brand {
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  border-radius: 999px;
+  padding: 8px 12px;
   display: flex;
   align-items: center;
-  justify-content: center;
-  margin-bottom: 48px;
-  text-decoration: none;
-}
-
-.brandIcon {
-  width: 44px;
-  height: 44px;
-  background: linear-gradient(135deg, var(--primary), var(--primary-container));
-  color: white;
-  border-radius: 14px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 24px;
-  font-weight: 900;
-  box-shadow: 0 4px 12px rgba(75, 42, 184, 0.3);
+  justify-content: space-between;
+  z-index: 2000;
+  box-shadow: 0 16px 48px rgba(0, 69, 152, 0.12);
 }
 
 .nav {
   display: flex;
-  flex-direction: column;
-  gap: 16px;
-  flex: 1;
-  width: 100%;
+  flex-direction: row;
   align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  gap: 8px;
 }
 
 .navItem {
   display: flex;
   align-items: center;
-  justify-content: center;
-  width: 56px;
-  height: 56px;
-  border-radius: 18px;
-  font-size: 28px;
+  gap: 8px;
+  padding: 10px 20px;
+  border-radius: 999px;
   color: var(--on-surface-variant);
-  transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  text-decoration: none;
 }
 
 .navItem:hover {
   background: var(--surface-container);
   color: var(--primary);
-  transform: scale(1.1);
+}
+
+.icon {
+  display: flex;
+  align-items: center;
+  font-size: 24px;
+}
+
+.label {
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
 }
 
 .active {
-  background: var(--primary-container);
-  color: white;
-  box-shadow: 0 8px 20px rgba(75, 42, 184, 0.25);
+  background: white;
+  color: var(--primary);
+  box-shadow: 0 4px 12px rgba(0, 69, 152, 0.08);
 }
 
-.logout {
-  width: 100%;
-  display: flex;
-  justify-content: center;
-  padding-top: 24px;
-  border-top: 1px solid var(--outline-variant);
+.divider {
+  width: 1px;
+  height: 24px;
+  background: var(--outline-variant);
+  margin: 0 8px;
+  opacity: 0.5;
 }
 
 .logoutBtn {
   display: flex;
   align-items: center;
-  justify-content: center;
-  width: 52px;
-  height: 52px;
-  border-radius: 16px;
+  gap: 8px;
+  padding: 10px 20px;
+  border-radius: 999px;
   color: var(--outline);
-  font-size: 24px;
+  transition: all 0.2s;
 }
 
 .logoutBtn:hover {
   color: var(--error);
-  background: var(--error-container);
+  background: rgba(186, 26, 26, 0.05);
 }
 
 /* Bottom Nav (Mobile) */
 .bottomNav {
   display: none;
   position: fixed;
-  bottom: 0;
-  left: 0;
-  width: 100%;
-  background: rgba(253, 248, 255, 0.85);
+  bottom: 24px;
+  left: 20px;
+  right: 20px;
+  background: rgba(255, 255, 255, 0.85);
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
-  border-top: 1px solid var(--outline-variant);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  border-radius: 999px;
   z-index: 1000;
-  padding-bottom: env(safe-area-inset-bottom);
+  box-shadow: 0 16px 48px rgba(0, 69, 152, 0.12);
+  padding: 6px 12px;
 }
 
 .bottomNavInner {
   display: flex;
   justify-content: space-around;
-  padding: 12px 0;
+  align-items: center;
 }
 
 .bottomNavItem {
   display: flex;
   flex-direction: column;
   align-items: center;
+  gap: 4px;
   color: var(--on-surface-variant);
-  font-size: 32px;
-  padding: 8px;
+  padding: 10px 8px;
   transition: all 0.2s;
   flex: 1;
+  text-decoration: none;
+}
+
+.bottomNavItem .icon {
+  font-size: 24px;
+  display: flex;
+  align-items: center;
+}
+
+.bottomNavItem .label {
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
 }
 
 .activeBottom {
   color: var(--primary);
-  transform: translateY(-4px);
+}
+
+.activeBottom .icon {
+  transform: scale(1.1);
 }
 
 /* Floating Action Button (FAB) */
 .fabContainer {
   display: none;
   position: fixed;
-  bottom: 100px;
+  bottom: 120px;
   right: 20px;
   z-index: 1001;
 }

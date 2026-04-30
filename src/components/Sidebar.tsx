@@ -40,20 +40,6 @@ export default function Sidebar() {
 
   return (
     <aside className={styles.sidebar}>
-      <Link href="/" className={styles.brand}>
-        <div className={styles.brandIcon}>D</div>
-      </Link>
-
-      <div style={{ padding: '0 16px', marginBottom: '32px' }}>
-        <button 
-          className={styles.fab} 
-          onClick={() => window.dispatchEvent(new CustomEvent('open-expense-modal'))}
-          title="Add expense"
-        >
-          <Plus weight="bold" />
-        </button>
-      </div>
-
       <nav className={styles.nav}>
         {links.map(link => {
           const isActive = pathname === link.href || (link.href === '/groups' && pathname.startsWith('/groups'));
@@ -62,18 +48,15 @@ export default function Sidebar() {
               key={link.href} 
               href={link.href} 
               className={`${styles.navItem} ${isActive ? styles.active : ''}`}
-              title={link.label}
             >
               <span className={styles.icon}>{link.icon}</span>
+              <span className={styles.label}>{link.label}</span>
             </Link>
           );
         })}
-      </nav>
-
-      <div className={styles.logout}>
+        <div className={styles.divider} />
         <button 
           className={styles.logoutBtn} 
-          title="Log out"
           onClick={async () => {
             const supabase = createClient();
             await supabase.auth.signOut();
@@ -81,8 +64,9 @@ export default function Sidebar() {
           }}
         >
           <SignOut weight="bold" />
+          <span className={styles.label}>Logout</span>
         </button>
-      </div>
+      </nav>
     </aside>
   );
 }

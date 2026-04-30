@@ -18,6 +18,7 @@ import { toCents, toDollars, simplifyDebts } from '@/lib/mathEngine';
 import MemberSearch from '@/components/MemberSearch';
 import ExpenseForm from '@/components/ExpenseForm';
 import ExpenseDetailDrawer from '@/components/ExpenseDetailDrawer';
+import Skeleton from '@/components/Skeleton';
 
 type GroupRow = Tables<'groups'>;
 type UserRow = Tables<'users'>;
@@ -44,25 +45,35 @@ export default function GroupDetailPage() {
     setIsLoading(true);
     try {
       const { data: { user } } = await db.auth.getUser();
-      if (!user) return;
+      if (!user) {
+        setIsLoading(false);
+        return;
+      }
       setAuthUser(user);
 
-      const { data: groupData } = await db.from('groups').select('*').eq('id', groupId).single();
-      if (!groupData) throw new Error('Group not found');
-      setGroup(groupData);
+      // Run all primary data fetches in parallel for better performance
+      const [groupRes, membersRes, expensesRes, settlementsRes] = await Promise.all([
+        db.from('groups').select('*').eq('id', groupId).single(),
+        db.from('group_members').select('users(*)').eq('group_id', groupId),
+        db.from('expenses').select('*, expense_splits(*)').eq('group_id', groupId).order('created_at', { ascending: false }),
+        db.from('settlements').select('*').eq('group_id', groupId).eq('status', 'completed')
+      ]);
 
-      const { data: memberProfiles } = await db.from('group_members').select('users(*)').eq('group_id', groupId);
-      const profiles = (memberProfiles ?? []).map(m => (m as any).users as UserRow).filter(Boolean);
+      if (groupRes.error) throw groupRes.error;
+      setGroup(groupRes.data);
+
+      const profiles = (membersRes.data ?? []).map(m => (m as any).users as UserRow).filter(Boolean);
       setMembers(profiles);
 
-      const { data: expenseData } = await db.from('expenses').select('*, expense_splits(*)').eq('group_id', groupId).order('created_at', { ascending: false });
-      setExpenses((expenseData ?? []) as ExpenseRow[]);
-
-      const { data: settlementData } = await db.from('settlements').select('*').eq('group_id', groupId).eq('status', 'completed');
-      setSettlements((settlementData ?? []) as SettlementRow[]);
-    } catch (err: any) { toast.error(err.message); }
-    finally { setIsLoading(false); }
-  }, [groupId]);
+      setExpenses((expensesRes.data ?? []) as ExpenseRow[]);
+      setSettlements((settlementsRes.data ?? []) as SettlementRow[]);
+    } catch (err: any) { 
+      console.error('Error loading group data:', err);
+      toast.error(err.message); 
+    } finally { 
+      setIsLoading(false); 
+    }
+  }, [groupId, db]);
 
   useEffect(() => { loadAll(); }, [loadAll]);
 
@@ -95,7 +106,48 @@ export default function GroupDetailPage() {
     setEditingExpenseId(id);
   };
 
-  if (isLoading) return <div style={{ padding: '24px', opacity: 0.6 }}>Loading group details…</div>;
+  if (isLoading) {
+    return (
+      <div className={styles.container}>
+        <header className={styles.header}>
+          <div style={{ width: '24px' }} />
+          <div className={styles.headerInfo}>
+            <Skeleton width="120px" height="24px" />
+            <Skeleton width="60px" height="14px" style={{ marginTop: '4px' }} />
+          </div>
+        </header>
+        <div className={styles.dashboard}>
+          <section>
+            <div className={styles.cardHeader}>
+              <Skeleton width="100px" height="16px" />
+            </div>
+            <div style={{ display: 'flex', gap: '8px', overflowX: 'hidden' }}>
+              {[1, 2, 3, 4].map(i => <Skeleton key={i} circle width="48px" height="48px" />)}
+            </div>
+          </section>
+          
+          <section style={{ marginTop: '32px' }}>
+            <div className={styles.cardHeader}>
+              <Skeleton width="140px" height="16px" />
+            </div>
+            <Skeleton width="100%" height="100px" borderRadius="16px" />
+          </section>
+
+          <section style={{ marginTop: '32px' }}>
+            <div className={styles.cardHeader}>
+              <Skeleton width="100px" height="16px" />
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+              {[1, 2, 3].map(i => (
+                <Skeleton key={i} width="100%" height="72px" borderRadius="16px" />
+              ))}
+            </div>
+          </section>
+        </div>
+      </div>
+    );
+  }
+
   if (!group) return null;
 
   return (
