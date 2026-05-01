@@ -31,9 +31,11 @@ export default async function proxy(request: NextRequest) {
 
   // Route protection logic
   const isAuthRoute = request.nextUrl.pathname.startsWith('/auth');
-  const isHomeRoute = request.nextUrl.pathname === '/';
+  const isPublicAsset = request.nextUrl.pathname.startsWith('/_next') || 
+                        request.nextUrl.pathname.startsWith('/favicon') || 
+                        request.nextUrl.pathname.match(/\.(?:svg|png|jpg|jpeg|gif|webp)$/);
 
-  if (!user && !isAuthRoute && !isHomeRoute) {
+  if (!user && !isAuthRoute && !isPublicAsset) {
     const url = request.nextUrl.clone();
     url.pathname = '/auth/login';
     return NextResponse.redirect(url);

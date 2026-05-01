@@ -42,7 +42,10 @@ export default function FriendsPage() {
     setIsLoading(true);
     try {
       const { data: { user } } = await db.auth.getUser();
-      if (!user) return;
+      if (!user) {
+        window.location.href = '/auth/login';
+        return;
+      }
       setAuthUser(user);
 
       const { data: myMemberships } = await db.from('group_members').select('group_id').eq('user_id', user.id);
