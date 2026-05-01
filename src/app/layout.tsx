@@ -5,6 +5,7 @@ import BottomNav from '@/components/BottomNav';
 import GlobalModalManager from '@/components/GlobalModalManager';
 import { ThemeProvider } from '@/components/ThemeProvider';
 import { Toaster } from 'sonner';
+import LayoutWrapper from '@/components/LayoutWrapper';
 
 export const metadata: Metadata = {
   title: 'Divid-o',
@@ -28,14 +29,9 @@ export default function RootLayout({
       <body>
         <ThemeProvider>
           <Toaster richColors position="top-center" toastOptions={{ style: { fontFamily: 'Inter, sans-serif' } }} />
-          <div className="app-layout">
-            <Sidebar />
-            <GlobalModalManager />
-            <main className="main-content">
-              {children}
-            </main>
-            <BottomNav />
-          </div>
+          <LayoutWrapper>
+            {children}
+          </LayoutWrapper>
         </ThemeProvider>
       </body>
     </html>

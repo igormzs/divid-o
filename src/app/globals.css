@@ -145,6 +145,17 @@ a {
   min-height: 100vh;
 }
 
+/* Auth Layout (Full Screen) */
+.auth-layout {
+  min-height: 100vh;
+  background-color: var(--background);
+}
+
+.auth-content {
+  min-height: 100vh;
+  width: 100%;
+}
+
 @media (max-width: 1024px) {
   .main-content {
     padding: 32px 24px 100px; /* Space for BottomNav */
