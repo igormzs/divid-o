@@ -15,6 +15,12 @@
   --tertiary: #0e4f65;
   --on-tertiary: #ffffff;
   
+  /* Hover States (Slightly darker) */
+  --primary-hover: #003575;
+  --primary-container-hover: #1a4d9c;
+  --secondary-hover: #414770;
+  --tertiary-hover: #0a3a4b;
+  
   --background: #fdf8ff;
   --on-background: #232323;
   

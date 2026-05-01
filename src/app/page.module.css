@@ -33,6 +33,13 @@
   font-weight: 800;
   font-size: 14px;
   box-shadow: 0 8px 20px rgba(75, 42, 184, 0.2);
+  transition: all 0.2s;
+}
+
+.addFriendBtn:hover {
+  background: var(--primary-hover);
+  transform: translateY(-2px);
+  box-shadow: 0 12px 24px rgba(75, 42, 184, 0.3);
 }
 
 .searchBar {
@@ -185,7 +192,7 @@
 }
 
 .settleBtn:hover {
-  background: var(--primary-container);
+  background: var(--primary-container-hover);
   color: white;
 }
 
@@ -238,6 +245,13 @@
   font-weight: 800;
   font-size: 16px;
   box-shadow: 0 8px 20px rgba(75, 42, 184, 0.2);
+  transition: all 0.2s;
+}
+
+.primaryBtn:hover {
+  background: var(--primary-hover);
+  transform: translateY(-2px);
+  box-shadow: 0 12px 24px rgba(75, 42, 184, 0.3);
 }
 
 .emptyState {

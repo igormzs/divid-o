@@ -61,7 +61,8 @@
 }
 
 .searchBtn:hover:not(:disabled) {
-  background: #e2e8f0;
+  background: var(--surface-variant);
+  border-color: var(--outline-variant);
 }
 
 .resultsList {
@@ -146,7 +147,8 @@
 }
 
 .addBtn:hover {
-  opacity: 0.9;
+  background: var(--primary-hover);
+  transform: translateY(-1px);
 }
 
 .alreadyIn {
