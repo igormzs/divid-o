@@ -34,8 +34,8 @@ export default function SignupPage() {
             <Image 
               src="/logo.png" 
               alt="Divid-o Logo" 
-              width={120} 
-              height={120} 
+              width={200} 
+              height={200} 
               className="auth-full-logo"
               priority
             />
