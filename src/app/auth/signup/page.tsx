@@ -32,7 +32,7 @@ export default function SignupPage() {
         <div className="auth-header">
           <div className="auth-logo-wrapper">
             <Image 
-              src="/favicon.png" 
+              src="/logo.png" 
               alt="Divid-o Logo" 
               width={120} 
               height={120} 
