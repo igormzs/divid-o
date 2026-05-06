@@ -17,7 +17,7 @@ type SettlementRow = Tables<'settlements'>;
 interface FriendWithBalance {
   id: string;
   name: string;
-  email: string;
+  email: string | null;
   initials: string;
   avatar_url: string | null;
   balance: number;
@@ -121,7 +121,7 @@ export default function FriendsPage() {
 
   const filtered = friends.filter(f =>
     f.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    f.email.toLowerCase().includes(searchQuery.toLowerCase())
+    (f.email?.toLowerCase() ?? '').includes(searchQuery.toLowerCase())
   );
 
   return (

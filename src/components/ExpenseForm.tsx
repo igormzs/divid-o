@@ -71,7 +71,7 @@ export default function ExpenseForm({ onClose, onSuccess, preSelectedGroupId, ed
   const [groupId, setGroupId] = useState<string | null>(preSelectedGroupId || null);
   
   // Split states
-  const [splitType, setSplitType] = useState<'EQUALLY' | 'EXACT' | 'PERCENTAGE'>('EQUALLY');
+  const [splitType, setSplitType] = useState<'EQUALLY' | 'EXACT' | 'PERCENTAGE' | 'FULL'>('EQUALLY');
   const [payerId, setPayerId] = useState(authUser?.id || '');
   const [selectedFriends, setSelectedFriends] = useState<any[]>([]);
   const [customInputs, setCustomInputs] = useState<Record<string, string>>({});

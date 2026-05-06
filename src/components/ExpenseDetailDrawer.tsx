@@ -38,8 +38,17 @@ export default function ExpenseDetailDrawer({
       const { data: exp } = await db.from('expenses').select('*, expense_splits(*)').eq('id', expenseId).single();
       if (exp) {
         setExpense(exp);
-        const { data: groupMembers } = await db.from('group_members').select('users(*)').eq('group_id', exp.group_id);
-        setMembers((groupMembers ?? []).map(m => (m as any).users));
+        if (exp.group_id) {
+          const { data: groupMembers } = await db.from('group_members').select('users(*)').eq('group_id', exp.group_id);
+          setMembers((groupMembers ?? []).map(m => (m as any).users));
+        } else {
+          // If no group_id, fetch users from the splits directly
+          const userIds = (exp.expense_splits ?? []).map((s: any) => s.user_id);
+          if (userIds.length > 0) {
+            const { data: users } = await db.from('users').select('*').in('id', userIds);
+            setMembers(users ?? []);
+          }
+        }
       }
     } catch (err) { console.error(err); }
     finally { setIsLoading(false); }
