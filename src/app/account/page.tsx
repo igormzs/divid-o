@@ -116,7 +116,12 @@ export default function AccountPage() {
       setAvatarUrl(publicUrl);
       toast.success('Photo uploaded!');
     } catch (err: any) {
-      toast.error('Upload failed: ' + err.message);
+      console.error('Upload error:', err);
+      if (err.message === 'Bucket not found') {
+        toast.error('Upload failed: The "avatars" storage bucket was not found. Please create it in your Supabase dashboard.');
+      } else {
+        toast.error('Upload failed: ' + err.message);
+      }
     } finally {
       setIsSaving(false);
     }

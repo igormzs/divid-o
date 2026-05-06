@@ -52,30 +52,33 @@ export type Database = {
           created_at: string | null
           currency: string | null
           description: string
-          group_id: string
+          group_id: string | null
           id: string
           paid_by: string
           receipt_url: string | null
+          notes: string | null
         }
         Insert: {
           amount: number
           created_at?: string | null
           currency?: string | null
           description: string
-          group_id: string
+          group_id?: string | null
           id?: string
           paid_by: string
           receipt_url?: string | null
+          notes?: string | null
         }
         Update: {
           amount?: number
           created_at?: string | null
           currency?: string | null
           description?: string
-          group_id?: string
+          group_id?: string | null
           id?: string
           paid_by?: string
           receipt_url?: string | null
+          notes?: string | null
         }
         Relationships: [
           {
@@ -218,32 +221,35 @@ export type Database = {
         Row: {
           avatar_url: string | null
           created_at: string | null
-          email: string
+          email: string | null
           username: string | null
           first_name: string | null
           id: string
           last_name: string | null
           preferred_currency: string | null
+          is_guest: boolean | null
         }
         Insert: {
           avatar_url?: string | null
           created_at?: string | null
-          email: string
+          email?: string | null
           username?: string | null
           first_name?: string | null
           id: string
           last_name?: string | null
           preferred_currency?: string | null
+          is_guest?: boolean | null
         }
         Update: {
           avatar_url?: string | null
           created_at?: string | null
-          email?: string
+          email?: string | null
           username?: string | null
           first_name?: string | null
           id?: string
           last_name?: string | null
           preferred_currency?: string | null
+          is_guest?: boolean | null
         }
         Relationships: []
       }

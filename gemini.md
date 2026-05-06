@@ -7,12 +7,13 @@
 ```json
 {
   "id": "uuid (PK)",
-  "email": "string",
+  "email": "string (nullable for guests)",
   "username": "string",
   "first_name": "string",
   "last_name": "string",
   "avatar_url": "string",
   "preferred_currency": "string",
+  "is_guest": "boolean",
   "created_at": "timestamp"
 }
 ```
@@ -42,9 +43,10 @@
 ```json
 {
   "id": "uuid (PK)",
-  "group_id": "uuid (FK groups)",
+  "group_id": "uuid (FK groups, nullable for peer-to-peer)",
   "paid_by": "uuid (FK users)",
   "description": "string",
+  "notes": "text (nullable)",
   "amount": "decimal",
   "currency": "string",
   "receipt_url": "string",
