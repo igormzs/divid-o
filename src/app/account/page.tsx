@@ -180,7 +180,7 @@ export default function AccountPage() {
           <button 
             type="button" 
             className={`unstyled-btn ${styles.avatarBtn}`}
-            onClick={() => setCameraActive(false) || startCamera()}
+            onClick={() => { setCameraActive(false); startCamera(); }}
             aria-label="Change profile photo"
           >
             <div className={styles.avatar}>
