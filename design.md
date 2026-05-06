@@ -16,35 +16,35 @@ colors:
   outline: '#797585'
   outline-variant: '#c9c4d6'
   surface-tint: '#1d5bb8'
-  primary: '#004598'
+  primary: '#0C65B4'
   on-primary: '#ffffff'
-  primary-container: '#205dba'
-  on-primary-container: '#cedcff'
-  inverse-primary: '#adc6ff'
-  secondary: '#535b8f'
+  primary-container: '#d0e4ff'
+  on-primary-container: '#001d36'
+  inverse-primary: '#9ecaff'
+  secondary: '#3395EA'
   on-secondary: '#ffffff'
-  secondary-container: '#bbc3fe'
-  on-secondary-container: '#474f82'
-  tertiary: '#0e4f65'
+  secondary-container: '#d1e4ff'
+  on-secondary-container: '#001d36'
+  tertiary: '#590E65'
   on-tertiary: '#ffffff'
-  tertiary-container: '#2f677e'
-  on-tertiary-container: '#ade4fe'
+  tertiary-container: '#ffd7ff'
+  on-tertiary-container: '#350041'
   error: '#ba1a1a'
   on-error: '#ffffff'
   error-container: '#ffdad6'
   on-error-container: '#93000a'
-  primary-fixed: '#d8e2ff'
-  primary-fixed-dim: '#adc6ff'
-  on-primary-fixed: '#232323'
-  on-primary-fixed-variant: '#004495'
-  secondary-fixed: '#dee0ff'
-  secondary-fixed-dim: '#bbc3fe'
-  on-secondary-fixed: '#0d1648'
-  on-secondary-fixed-variant: '#3b4376'
-  tertiary-fixed: '#bee9ff'
-  tertiary-fixed-dim: '#98cee8'
-  on-tertiary-fixed: '#232323'
-  on-tertiary-fixed-variant: '#094d63'
+  primary-fixed: '#d0e4ff'
+  primary-fixed-dim: '#9ecaff'
+  on-primary-fixed: '#001d36'
+  on-primary-fixed-variant: '#004a80'
+  secondary-fixed: '#d1e4ff'
+  secondary-fixed-dim: '#9ecaff'
+  on-secondary-fixed: '#001d36'
+  on-secondary-fixed-variant: '#004a80'
+  tertiary-fixed: '#ffd7ff'
+  tertiary-fixed-dim: '#f4abff'
+  on-tertiary-fixed: '#350041'
+  on-tertiary-fixed-variant: '#6e277c'
   background: '#fdf8ff'
   on-background: '#232323'
   surface-variant: '#e6e0ec'
@@ -114,11 +114,10 @@ The design style is a sophisticated blend of **Glassmorphism** and **High-Contra
 
 ## Colors
 
-This design system utilizes a palette centered around crisp blues and soft periwinkle tones to establish a trustworthy yet energetic brand identity in the fintech space.
-
-- **Primary Blue:** A solid, dependable blue used for main navigation, primary actions, and brand-heavy components.
-- **Secondary Lavender:** A soft, inviting purple-blue used for celebratory moments, notifications, and secondary call-to-actions.
-- **Sky Accents:** These lighter tertiary blues are reserved for interactive elements that require attention or indicate state changes, such as "Add Expense" or "Settle Up" buttons.
+- **Primary Blue:** A solid, dependable blue (`#0C65B4`) used for main navigation, primary actions, and brand-heavy components.
+- **Secondary Sky:** A vibrant sky blue (`#3395EA`) used for secondary call-to-actions and interactive elements.
+- **Tertiary Purple:** A deep purple (`#590E65`) reserved for special accents or state changes that require high contrast.
+- **Brand Gradient:** A smooth linear gradient from Secondary Sky (`#3395EA`) to Primary Blue (`#0C65B4`), representing our new visual identity.
 - **Cool Neutrals:** Backgrounds and containers use very soft, cool-toned foundations rather than pure greys to maintain the airy, modern atmosphere. We strictly avoid using pure black (#000000) for text or shadows, favoring a deep, warm grey (#232323) for better readability and a more premium feel.
 
 ## Typography
@@ -161,5 +160,7 @@ The shape language is defined by **High Roundedness**. Almost all containers and
 - **Expense Cards:** Use glassmorphism for the background. Include a large, bold financial figure in Manrope and a mini-avatar stack representing the people involved in the split.
 - **Progress Bars:** Thick, rounded bars with a gradient fill. The background of the bar should be a very light version of the primary blue.
 - **Chips/Badges:** Small, pill-shaped tags used for categories (e.g., "Food", "Travel"). These should use the vibrant tertiary sky colors with white or dark text depending on contrast.
-- **Input Fields:** Soft cool-toned backgrounds with no borders, using a 16px corner radius. The focus state should introduce a thin, bright blue outline or a soft outer glow.
+- **Input Fields:** White backgrounds with visible light-grey borders (`1.5px solid #e2e8f0`) to clearly indicate editability. Maintain a 16px corner radius.
+- **Form Labels:** Should be `13px`, weight `800`, uppercase, and use `0.05em` letter spacing (Manrope) to provide a structured, professional hierarchy.
+- **Interactive Focus:** The focus state should highlight the border with the primary color and add a soft outer glow (`0 0 0 4px rgba(12, 101, 180, 0.1)`).
 - **Illustrations:** Use organic, hand-drawn style characters and floating elements (like flying coins or bills) to fill empty states and onboarding screens, as seen in the reference imagery.

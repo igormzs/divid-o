@@ -21,7 +21,10 @@ type GroupWithBalance = Group & {
 
 const db = createTypedClient();
 
+import { useAuth } from '@/context/AuthContext';
+
 export default function GroupsPage() {
+  const { user: authUser, isLoading: authLoading } = useAuth();
   const [groups, setGroups] = useState<GroupWithBalance[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
@@ -31,19 +34,25 @@ export default function GroupsPage() {
   const [isCreating, setIsCreating] = useState(false);
 
   const loadGroups = useCallback(async () => {
+    if (!authUser) return;
     setIsLoading(true);
     try {
-      const { data: { user } } = await db.auth.getUser();
-      if (!user) return;
-
-      const { data: myMemberships } = await db.from('group_members').select('group_id').eq('user_id', user.id);
+      const { data: myMemberships } = await db.from('group_members').select('group_id').eq('user_id', authUser.id);
       const groupIds = ((myMemberships ?? []) as GroupMemberRow[]).map(r => r.group_id);
       if (groupIds.length === 0) { setGroups([]); return; }
 
-      const { data: allGroups } = await db.from('groups').select('*').in('id', groupIds);
-      const { data: allMembers } = await db.from('group_members').select('group_id').in('group_id', groupIds);
-      const { data: allExpenses } = await db.from('expenses').select('*, expense_splits(*)').in('group_id', groupIds);
-      const { data: allSettlements } = await db.from('settlements').select('*').in('group_id', groupIds).eq('status', 'completed');
+      // Parallelize data fetching
+      const [allGroupsRes, allMembersRes, allExpensesRes, allSettlementsRes] = await Promise.all([
+        db.from('groups').select('*').in('id', groupIds),
+        db.from('group_members').select('group_id').in('group_id', groupIds),
+        db.from('expenses').select('*, expense_splits(*)').in('group_id', groupIds),
+        db.from('settlements').select('*').in('group_id', groupIds).eq('status', 'completed')
+      ]);
+
+      const allGroups = allGroupsRes.data ?? [];
+      const allMembers = allMembersRes.data ?? [];
+      const allExpenses = allExpensesRes.data ?? [];
+      const allSettlements = allSettlementsRes.data ?? [];
 
       const enriched: GroupWithBalance[] = ((allGroups ?? []) as Group[]).map(group => {
         const memberCount = (allMembers ?? []).filter(m => m.group_id === group.id).length;
@@ -52,18 +61,18 @@ export default function GroupsPage() {
 
         let balance = 0;
         for (const exp of expenses) {
-          if (exp.paid_by === user.id) {
-            const totalOwedToMe = exp.expense_splits?.reduce((acc, s) => s.user_id !== user.id ? acc + Number(s.amount_owed) : acc, 0) ?? 0;
+          if (exp.paid_by === authUser.id) {
+            const totalOwedToMe = exp.expense_splits?.reduce((acc, s) => s.user_id !== authUser.id ? acc + Number(s.amount_owed) : acc, 0) ?? 0;
             balance += totalOwedToMe;
           } else {
-            const mySplit = exp.expense_splits?.find(s => s.user_id === user.id);
+            const mySplit = exp.expense_splits?.find(s => s.user_id === authUser.id);
             if (mySplit) balance -= Number(mySplit.amount_owed);
           }
         }
 
         for (const s of settlements) {
-          if (s.paid_by === user.id) balance -= Number(s.amount);
-          if (s.paid_to === user.id) balance += Number(s.amount);
+          if (s.paid_by === authUser.id) balance -= Number(s.amount);
+          if (s.paid_to === authUser.id) balance += Number(s.amount);
         }
 
         return {
@@ -85,11 +94,10 @@ export default function GroupsPage() {
 
   const handleCreateGroup = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newGroupName.trim()) return;
+    if (!newGroupName.trim() || !authUser) return;
     setIsCreating(true);
     try {
-      const { data: { user } } = await db.auth.getUser();
-      if (!user) return;
+      const user = authUser;
 
       const { data: group, error: groupErr } = await db.from('groups').insert({
         name: newGroupName.trim(),
@@ -175,7 +183,17 @@ export default function GroupsPage() {
       </div>
 
       <div className={styles.groupsList}>
-        {isLoading ? <p style={{ padding: '24px', opacity: 0.6 }}>Loading…</p> : 
+        {isLoading ? (
+          Array.from({ length: 3 }).map((_, i) => (
+            <div key={i} className={styles.groupItem}>
+              <div className={`${styles.groupIcon} skeleton`} />
+              <div className={styles.groupInfo} style={{ flex: 1 }}>
+                <div className="skeleton" style={{ height: '18px', width: '60%', marginBottom: '8px' }} />
+                <div className="skeleton" style={{ height: '14px', width: '30%' }} />
+              </div>
+            </div>
+          ))
+        ) : 
          filtered.length === 0 ? (
            <div className={styles.emptyState}>
              <div className={styles.emptyIcon}><Users /></div>

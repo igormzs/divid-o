@@ -75,10 +75,15 @@ export default function ExpenseDetailDrawer({
   });
 
   return (
-    <div className={`${styles.overlay} ${styles.overlayDrawer}`} onClick={(e) => e.target === e.currentTarget && onClose()}>
-      <div className={styles.drawer}>
+    <div className={`${styles.overlay} ${styles.overlayDrawer}`} onClick={(e) => e.target === e.currentTarget && onClose()} role="presentation">
+      <div 
+        className={styles.drawer}
+        role="dialog"
+        aria-modal="true"
+        aria-label="Expense Details"
+      >
         <header className={styles.header}>
-          <button onClick={onClose} className={styles.closeBtn}><X size={20} weight="bold" /></button>
+          <button onClick={onClose} className={styles.closeBtn} aria-label="Close expense details"><X size={20} weight="bold" aria-hidden="true" /></button>
         </header>
 
         <div className={styles.detailHeader}>
@@ -91,7 +96,7 @@ export default function ExpenseDetailDrawer({
         <div className={styles.detailSection}>
           <div className={styles.detailRow}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <User size={18} color="var(--outline)" />
+              <User size={18} color="var(--outline)" aria-hidden="true" />
               <span className={styles.detailLabel}>Pago por</span>
             </div>
             <span className={styles.detailValue}>{payer?.first_name || 'Alguém'}</span>
@@ -99,7 +104,7 @@ export default function ExpenseDetailDrawer({
 
           <div className={styles.detailRow}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <CalendarBlank size={18} color="var(--outline)" />
+              <CalendarBlank size={18} color="var(--outline)" aria-hidden="true" />
               <span className={styles.detailLabel}>Data</span>
             </div>
             <span className={styles.detailValue}>{formattedDate}</span>
@@ -124,8 +129,8 @@ export default function ExpenseDetailDrawer({
         </div>
 
         <div className={styles.drawerActions}>
-          <button className={styles.deleteBtn} onClick={handleDelete} disabled={isDeleting}>
-            <Trash size={20} weight="bold" />
+          <button className={styles.deleteBtn} onClick={handleDelete} disabled={isDeleting} aria-label="Delete expense">
+            <Trash size={20} weight="bold" aria-hidden="true" />
           </button>
           <button className={styles.editBtn} onClick={() => onEdit(expenseId)}>
             Editar despesa

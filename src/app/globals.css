@@ -2,24 +2,27 @@
 
 :root {
   /* Brand Palette (Social Split Play) */
-  --primary: #004598;
+  --primary: #0C65B4;
   --on-primary: #ffffff;
-  --primary-container: #205dba;
-  --on-primary-container: #cedcff;
+  --primary-container: #d0e4ff;
+  --on-primary-container: #001d36;
   
-  --secondary: #535b8f;
+  --secondary: #3395EA;
   --on-secondary: #ffffff;
-  --secondary-container: #bbc3fe;
-  --on-secondary-container: #474f82;
+  --secondary-container: #d1e4ff;
+  --on-secondary-container: #001d36;
   
-  --tertiary: #0e4f65;
+  --tertiary: #590E65;
   --on-tertiary: #ffffff;
   
-  /* Hover States (Slightly darker) */
-  --primary-hover: #003575;
-  --primary-container-hover: #1a4d9c;
-  --secondary-hover: #414770;
-  --tertiary-hover: #0a3a4b;
+  /* Brand Gradient */
+  --brand-gradient: linear-gradient(135deg, #3395EA 0%, #0C65B4 100%);
+  
+  /* Hover States */
+  --primary-hover: #004a80;
+  --primary-container-hover: #b8d2f0;
+  --secondary-hover: #2178c5;
+  --tertiary-hover: #450050;
   
   --background: #fdf8ff;
   --on-background: #232323;
@@ -45,9 +48,9 @@
   --radius-full: 9999px;
   
   /* Tinted Shadows */
-  --shadow-sm: 0 4px 12px rgba(0, 69, 152, 0.05);
-  --shadow-md: 0 8px 24px rgba(0, 69, 152, 0.1);
-  --shadow-lg: 0 20px 48px rgba(0, 69, 152, 0.15);
+  --shadow-sm: 0 4px 12px rgba(12, 101, 180, 0.05);
+  --shadow-md: 0 8px 24px rgba(12, 101, 180, 0.1);
+  --shadow-lg: 0 20px 48px rgba(12, 101, 180, 0.15);
 }
 
 * {
@@ -83,6 +86,30 @@ button {
 
 button:active {
   transform: scale(0.96);
+}
+
+/* Accessibility: Global Focus Indicator */
+:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+}
+
+/* A11y Utility: Convert divs to buttons seamlessly */
+.unstyled-btn {
+  display: block;
+  width: 100%;
+  text-align: left;
+  background: transparent;
+  border: none;
+  padding: 0;
+  margin: 0;
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+  appearance: none;
+}
+.unstyled-btn:active {
+  transform: none; /* Disable global button scaling if needed, components will override */
 }
 
 a {
@@ -129,7 +156,27 @@ a {
   border-radius: var(--radius-full);
   font-size: 12px;
   font-weight: 700;
-  text-transform: uppercase;
+  text-transform: uppercase;/* Skeleton Loading */
+@keyframes skeleton-loading {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+.skeleton {
+  background: linear-gradient(90deg, #f1f5f9 25%, #e2e8f0 50%, #f1f5f9 75%);
+  background-size: 200% 100%;
+  animation: skeleton-loading 1.5s infinite linear;
+  border-radius: 8px;
+}
+
+[data-theme='dark'] .skeleton {
+  background: linear-gradient(90deg, #1e293b 25%, #334155 50%, #1e293b 75%);
+  background-size: 200% 100%;
+}
+
+.skeleton-circle {
+  border-radius: 50%;
+}
   letter-spacing: 0.05em;
 }
 
@@ -162,7 +209,7 @@ a {
   width: 100%;
 }
 
-@media (max-width: 1024px) {
+@media (max-width: 1023px) {
   .main-content {
     padding: 32px 24px 100px; /* Space for BottomNav */
   }

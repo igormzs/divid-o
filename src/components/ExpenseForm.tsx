@@ -49,6 +49,8 @@ interface ExpenseFormProps {
   editingExpenseId?: string;
 }
 
+import { useAuth } from '@/context/AuthContext';
+
 export default function ExpenseForm({ 
   onClose, 
   onSuccess, 
@@ -56,6 +58,7 @@ export default function ExpenseForm({
   editingExpenseId 
 }: ExpenseFormProps) {
   const db = createTypedClient();
+  const { user: authUser } = useAuth();
   const currencyPickerRef = useRef<HTMLDivElement>(null);
 
   const [description, setDescription] = useState('');
@@ -74,53 +77,53 @@ export default function ExpenseForm({
   
   const [isSaving, setIsSaving] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
-  const [authUser, setAuthUser] = useState<any>(null);
 
   const loadInitialData = useCallback(async () => {
+    if (!authUser) return;
     setIsLoading(true);
     try {
-      const { data: { user: authU } } = await db.auth.getUser();
-      if (!authU) return;
-      setAuthUser(authU);
+      // Parallelize primary data fetching
+      const [groupsRes, editingRes] = await Promise.all([
+        db.from('group_members').select('groups(id, name)').eq('user_id', authUser.id),
+        editingExpenseId 
+          ? db.from('expenses').select('*, expense_splits(*)').eq('id', editingExpenseId).single()
+          : Promise.resolve({ data: null, error: null })
+      ]);
 
-      const { data: myGroups } = await db.from('group_members').select('groups(id, name)').eq('user_id', authU.id);
-      const formattedGroups = (myGroups ?? []).map(g => (g as any).groups as Group).filter(Boolean);
+      const formattedGroups = (groupsRes.data ?? []).map(g => (g as any).groups as Group).filter(Boolean);
       setGroups(formattedGroups);
 
-      const currentGroupId = groupId || formattedGroups[0]?.id;
+      const exp = editingRes.data;
+      const currentGroupId = exp?.group_id || groupId || formattedGroups[0]?.id;
+      
       if (currentGroupId) {
         setGroupId(currentGroupId);
         await fetchMembers(currentGroupId);
       }
 
-      if (editingExpenseId) {
-        const { data: exp } = await db.from('expenses').select('*, expense_splits(*)').eq('id', editingExpenseId).single();
-        if (exp) {
-          setDescription(exp.description);
-          setAmountInput((exp.amount / 100).toFixed(2));
-          setPayerId(exp.paid_by);
-          setGroupId(exp.group_id);
-          const curr = CURRENCIES.find(c => c.code === exp.currency) || CURRENCIES[0];
-          setCurrency(curr);
-          
-          const inputs: Record<string, string> = {};
-          const selected = new Set<string>();
-          exp.expense_splits.forEach((s: any) => { 
-            inputs[s.user_id] = (s.amount_owed / 100).toFixed(2); 
-            selected.add(s.user_id);
-          });
-          setCustomInputs(inputs);
-          setSelectedMemberIds(selected);
-          setSplitType('EQUALLY'); 
-          setShowMoreOptions(true);
-          await fetchMembers(exp.group_id);
-        }
+      if (exp) {
+        setDescription(exp.description);
+        setAmountInput((exp.amount / 100).toFixed(2));
+        setPayerId(exp.paid_by);
+        const curr = CURRENCIES.find(c => c.code === exp.currency) || CURRENCIES[0];
+        setCurrency(curr);
+        
+        const inputs: Record<string, string> = {};
+        const selected = new Set<string>();
+        exp.expense_splits.forEach((s: any) => { 
+          inputs[s.user_id] = (s.amount_owed / 100).toFixed(2); 
+          selected.add(s.user_id);
+        });
+        setCustomInputs(inputs);
+        setSelectedMemberIds(selected);
+        setSplitType('EQUALLY'); 
+        setShowMoreOptions(true);
       } else {
-        setPayerId(authU.id);
+        setPayerId(authUser.id);
       }
     } catch (err) { console.error(err); }
     finally { setIsLoading(false); }
-  }, [editingExpenseId, groupId]);
+  }, [editingExpenseId, groupId, authUser, db]);
 
   const fetchMembers = async (gid: string) => {
     const { data: memData } = await db.from('group_members').select('users(id, email, first_name, last_name)').eq('group_id', gid);
@@ -139,6 +142,18 @@ export default function ExpenseForm({
   };
 
   useEffect(() => { loadInitialData(); }, [loadInitialData]);
+
+  useEffect(() => {
+    if (authUser && !editingExpenseId) {
+      db.from('users').select('preferred_currency').eq('id', authUser.id).single()
+        .then(({ data }) => {
+          if (data?.preferred_currency) {
+            const curr = CURRENCIES.find(c => c.code === data.preferred_currency);
+            if (curr) setCurrency(curr);
+          }
+        });
+    }
+  }, [authUser, editingExpenseId, db]);
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -250,11 +265,16 @@ export default function ExpenseForm({
   if (isLoading) return null;
 
   return (
-    <div className={styles.overlay} onClick={(e) => e.target === e.currentTarget && onClose()}>
-      <div className={styles.modal}>
+    <div className={styles.overlay} onClick={(e) => e.target === e.currentTarget && onClose()} role="presentation">
+      <div 
+        className={styles.modal}
+        role="dialog"
+        aria-modal="true"
+        aria-label={editingExpenseId ? "Edit Expense" : "Add Expense"}
+      >
         
         <header className={styles.header}>
-          <button onClick={onClose} className={styles.closeBtn}><X size={20} weight="bold" /></button>
+          <button onClick={onClose} className={styles.closeBtn} aria-label="Close expense form"><X size={20} weight="bold" aria-hidden="true" /></button>
         </header>
 
         <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
@@ -262,8 +282,9 @@ export default function ExpenseForm({
           {/* 1. Description Card (TOP) */}
           <div className={styles.card}>
             <div className={styles.inputGroup}>
-              <label className={styles.label}>Description</label>
+              <label htmlFor="expense-desc" className={styles.label}>Description</label>
               <input 
+                id="expense-desc"
                 className={styles.inputField}
                 placeholder="What was it for?" 
                 value={description} 
@@ -276,22 +297,37 @@ export default function ExpenseForm({
           {/* 2. Amount Card (MIDDLE) */}
           <div className={styles.card}>
             <div className={styles.inputGroup}>
-              <label className={styles.label}>Amount</label>
+              <label htmlFor="expense-amount" className={styles.label}>Amount</label>
               <div className={styles.amountWrapper}>
-                <span className={styles.currency} onClick={(e) => { e.stopPropagation(); setShowCurrencyPicker(!showCurrencyPicker); }}>
+                <button 
+                  type="button"
+                  className={`${styles.currency} unstyled-btn`} 
+                  onClick={(e) => { e.stopPropagation(); setShowCurrencyPicker(!showCurrencyPicker); }}
+                  aria-expanded={showCurrencyPicker}
+                  aria-label="Select currency"
+                  style={{ width: 'auto' }}
+                >
                   {currency.symbol}
                   {showCurrencyPicker && (
-                    <div className={styles.currencyPicker} ref={currencyPickerRef}>
+                    <div className={styles.currencyPicker} ref={currencyPickerRef} role="listbox">
                       {CURRENCIES.map(c => (
-                        <div key={c.code} className={`${styles.currencyItem} ${currency.code === c.code ? styles.active : ''}`} onClick={(e) => { e.stopPropagation(); setCurrency(c); setShowCurrencyPicker(false); }}>
-                          <span className={styles.currencySym}>{c.symbol}</span>
+                        <button 
+                          key={c.code} 
+                          type="button"
+                          className={`unstyled-btn ${styles.currencyItem} ${currency.code === c.code ? styles.active : ''}`} 
+                          onClick={(e) => { e.stopPropagation(); setCurrency(c); setShowCurrencyPicker(false); }}
+                          role="option"
+                          aria-selected={currency.code === c.code}
+                        >
+                          <span className={styles.currencySym} aria-hidden="true">{c.symbol}</span>
                           <span className={styles.currencyCode}>{c.code}</span>
-                        </div>
+                        </button>
                       ))}
                     </div>
                   )}
-                </span>
+                </button>
                 <input 
+                  id="expense-amount"
                   className={styles.amountInput}
                   type="number" step="0.01" 
                   placeholder="0.00" 
@@ -307,8 +343,8 @@ export default function ExpenseForm({
             <div>
               <h3 className={styles.sectionTitle}>Como essa despesa foi dividida?</h3>
               <div className={styles.quickSplitList} style={{ marginTop: '12px' }}>
-                <div className={`${styles.quickOption} ${getQuickOption(1) ? styles.active : ''}`} onClick={() => handleQuickSelect(1)}>
-                  <div className={styles.quickAvatars}>
+                <button type="button" className={`unstyled-btn ${styles.quickOption} ${getQuickOption(1) ? styles.active : ''}`} onClick={() => handleQuickSelect(1)} aria-pressed={getQuickOption(1)}>
+                  <div className={styles.quickAvatars} aria-hidden="true">
                     <div className={`${styles.quickAvatar} ${styles.primary}`}>ME</div>
                     <div className={styles.quickAvatar}>{otherMember?.name.substring(0,2).toUpperCase()}</div>
                   </div>
@@ -318,11 +354,11 @@ export default function ExpenseForm({
                       {otherMember?.name} deve a você {currency.symbol} {amountInput ? (parseFloat(amountInput)/2).toFixed(2) : '0.00'}
                     </span>
                   </div>
-                  {getQuickOption(1) && <Check size={20} weight="bold" className={styles.checkIcon} />}
-                </div>
+                  {getQuickOption(1) && <Check size={20} weight="bold" className={styles.checkIcon} aria-hidden="true" />}
+                </button>
 
-                <div className={`${styles.quickOption} ${getQuickOption(2) ? styles.active : ''}`} onClick={() => handleQuickSelect(2)}>
-                  <div className={styles.quickAvatars}>
+                <button type="button" className={`unstyled-btn ${styles.quickOption} ${getQuickOption(2) ? styles.active : ''}`} onClick={() => handleQuickSelect(2)} aria-pressed={getQuickOption(2)}>
+                  <div className={styles.quickAvatars} aria-hidden="true">
                     <div className={`${styles.quickAvatar} ${styles.primary}`}>ME</div>
                     <div className={styles.quickAvatar}>{otherMember?.name.substring(0,2).toUpperCase()}</div>
                   </div>
@@ -332,11 +368,11 @@ export default function ExpenseForm({
                       {otherMember?.name} deve a você {currency.symbol} {amountInput ? parseFloat(amountInput).toFixed(2) : '0.00'}
                     </span>
                   </div>
-                  {getQuickOption(2) && <Check size={20} weight="bold" className={styles.checkIcon} />}
-                </div>
+                  {getQuickOption(2) && <Check size={20} weight="bold" className={styles.checkIcon} aria-hidden="true" />}
+                </button>
 
-                <div className={`${styles.quickOption} ${getQuickOption(3) ? styles.active : ''}`} onClick={() => handleQuickSelect(3)}>
-                  <div className={styles.quickAvatars}>
+                <button type="button" className={`unstyled-btn ${styles.quickOption} ${getQuickOption(3) ? styles.active : ''}`} onClick={() => handleQuickSelect(3)} aria-pressed={getQuickOption(3)}>
+                  <div className={styles.quickAvatars} aria-hidden="true">
                     <div className={styles.quickAvatar}>{otherMember?.name.substring(0,2).toUpperCase()}</div>
                     <div className={`${styles.quickAvatar} ${styles.primary}`}>ME</div>
                   </div>
@@ -346,11 +382,11 @@ export default function ExpenseForm({
                       Você deve {currency.symbol} {amountInput ? (parseFloat(amountInput)/2).toFixed(2) : '0.00'} a {otherMember?.name}
                     </span>
                   </div>
-                  {getQuickOption(3) && <Check size={20} weight="bold" className={styles.checkIcon} />}
-                </div>
+                  {getQuickOption(3) && <Check size={20} weight="bold" className={styles.checkIcon} aria-hidden="true" />}
+                </button>
 
-                <div className={`${styles.quickOption} ${getQuickOption(4) ? styles.active : ''}`} onClick={() => handleQuickSelect(4)}>
-                  <div className={styles.quickAvatars}>
+                <button type="button" className={`unstyled-btn ${styles.quickOption} ${getQuickOption(4) ? styles.active : ''}`} onClick={() => handleQuickSelect(4)} aria-pressed={getQuickOption(4)}>
+                  <div className={styles.quickAvatars} aria-hidden="true">
                     <div className={styles.quickAvatar}>{otherMember?.name.substring(0,2).toUpperCase()}</div>
                     <div className={`${styles.quickAvatar} ${styles.primary}`}>ME</div>
                   </div>
@@ -360,8 +396,8 @@ export default function ExpenseForm({
                       Você deve {currency.symbol} {amountInput ? parseFloat(amountInput).toFixed(2) : '0.00'} a {otherMember?.name}
                     </span>
                   </div>
-                  {getQuickOption(4) && <Check size={20} weight="bold" className={styles.checkIcon} />}
-                </div>
+                  {getQuickOption(4) && <Check size={20} weight="bold" className={styles.checkIcon} aria-hidden="true" />}
+                </button>
 
                 <button type="button" className={styles.moreOptionsBtn} onClick={() => setShowMoreOptions(true)}>
                   Mais opções
@@ -372,16 +408,17 @@ export default function ExpenseForm({
             <>
               <div className={styles.card}>
                 <div className={styles.paidByCard}>
-                  <label className={styles.label}>Group & Payer</label>
-                  <select className={styles.selectBox} value={groupId} onChange={e => { setGroupId(e.target.value); fetchMembers(e.target.value); }}>
+                  <label htmlFor="group-select" className={styles.label}>Group</label>
+                  <select id="group-select" className={styles.selectBox} value={groupId} onChange={e => { setGroupId(e.target.value); fetchMembers(e.target.value); }}>
                     {groups.map(g => <option key={g.id} value={g.id}>{g.name}</option>)}
                   </select>
-                  <div className={styles.paidByRow} style={{ marginTop: '8px' }}>
-                    <div className={styles.userBadge}>
+                  <label htmlFor="payer-select" className={styles.label} style={{ marginTop: '12px' }}>Payer</label>
+                  <div className={styles.paidByRow} style={{ marginTop: '4px' }}>
+                    <div className={styles.userBadge} aria-hidden="true">
                       <div className={styles.avatar}>{payerId === authUser?.id ? 'ME' : allMembers.find(m => m.id === payerId)?.name.substring(0,2).toUpperCase()}</div>
                       <span className={styles.userName}>{payerId === authUser?.id ? 'You' : allMembers.find(m => m.id === payerId)?.name}</span>
                     </div>
-                    <select className={styles.changeBtn} value={payerId} onChange={(e) => setPayerId(e.target.value)} style={{ appearance: 'none', cursor: 'pointer', textAlign: 'center' }}>
+                    <select id="payer-select" className={styles.changeBtn} value={payerId} onChange={(e) => setPayerId(e.target.value)} style={{ appearance: 'none', cursor: 'pointer', textAlign: 'center' }}>
                       {allMembers.map(m => <option key={m.id} value={m.id}>{m.id === authUser?.id ? 'You' : m.name}</option>)}
                     </select>
                   </div>
@@ -394,16 +431,22 @@ export default function ExpenseForm({
                   {allMembers.map(m => {
                     const isSelected = selectedMemberIds.has(m.id);
                     return (
-                      <div key={m.id} className={`${styles.friendCard} ${isSelected ? styles.selected : ''}`} onClick={() => toggleMember(m.id)}>
-                        <div className={styles.friendInfo}>
-                          <div className={styles.friendAvatar}>{m.id === authUser?.id ? 'ME' : m.name.substring(0, 2).toUpperCase()}</div>
-                          <div className={styles.friendDetails}>
-                            <span className={styles.friendName}>{m.id === authUser?.id ? 'You' : m.name}</span>
-                            {m.email && <span className={styles.friendEmail}>{m.email}</span>}
+                        <button 
+                          key={m.id} 
+                          type="button"
+                          className={`unstyled-btn ${styles.friendCard} ${isSelected ? styles.selected : ''}`} 
+                          onClick={() => toggleMember(m.id)}
+                          aria-pressed={isSelected}
+                        >
+                          <div className={styles.friendInfo}>
+                            <div className={styles.friendAvatar} aria-hidden="true">{m.id === authUser?.id ? 'ME' : m.name.substring(0, 2).toUpperCase()}</div>
+                            <div className={styles.friendDetails}>
+                              <span className={styles.friendName}>{m.id === authUser?.id ? 'You' : m.name}</span>
+                              {m.email && <span className={styles.friendEmail}>{m.email}</span>}
+                            </div>
                           </div>
-                        </div>
-                        <div className={`${styles.checkbox} ${isSelected ? styles.checked : ''}`}>{isSelected && <Check size={16} weight="bold" />}</div>
-                      </div>
+                          <div className={`${styles.checkbox} ${isSelected ? styles.checked : ''}`} aria-hidden="true">{isSelected && <Check size={16} weight="bold" />}</div>
+                        </button>
                     );
                   })}
                 </div>

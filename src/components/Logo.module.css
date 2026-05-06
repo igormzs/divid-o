@@ -1,0 +1,55 @@
+.logoContainer {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  text-decoration: none;
+  width: fit-content;
+}
+
+.logoIcon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  color: inherit;
+  border-radius: 0;
+  transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+  box-shadow: none;
+  flex-shrink: 0;
+  overflow: visible;
+}
+
+.logoIcon:hover {
+  transform: scale(1.1);
+}
+
+.bare .logoIcon {
+  background: transparent;
+  box-shadow: none;
+  border-radius: 0;
+  padding: 0;
+}
+
+.bare .logoIcon:hover {
+  transform: scale(1.1);
+  box-shadow: none;
+}
+
+.logoText {
+  font-family: 'Manrope', sans-serif;
+  font-weight: 800;
+  font-size: 1.5rem;
+  letter-spacing: -0.04em;
+  color: var(--on-surface);
+  line-height: 1;
+}
+
+/* Size Variants */
+.sm .logoIcon { width: 32px; height: 32px; border-radius: 10px; }
+.sm .logoText { font-size: 1.25rem; }
+
+.md .logoIcon { width: 48px; height: 48px; border-radius: 14px; }
+.md .logoText { font-size: 1.75rem; }
+
+.lg .logoIcon { width: 64px; height: 64px; border-radius: 18px; }
+.lg .logoText { font-size: 2.25rem; }

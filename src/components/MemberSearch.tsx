@@ -60,17 +60,18 @@ export default function MemberSearch({ groupId, onMemberAdded, existingMemberIds
     <div className={styles.container}>
       <form onSubmit={handleSearch} className={styles.searchForm}>
         <div className={styles.inputWrapper}>
-          <MagnifyingGlass className={styles.searchIcon} />
+          <MagnifyingGlass className={styles.searchIcon} aria-hidden="true" />
           <input 
             type="text" 
             placeholder="Search by email or name..." 
+            aria-label="Search by email or name"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             className={styles.input}
           />
           {query && (
-            <button type="button" onClick={() => { setQuery(''); setResults([]); }} className={styles.clearBtn}>
-              <X />
+            <button type="button" onClick={() => { setQuery(''); setResults([]); }} className={styles.clearBtn} aria-label="Clear search">
+              <X aria-hidden="true" />
             </button>
           )}
         </div>
@@ -97,8 +98,8 @@ export default function MemberSearch({ groupId, onMemberAdded, existingMemberIds
                 {isAlreadyIn ? (
                   <span className={styles.alreadyIn}><CheckCircle weight="fill" /></span>
                 ) : (
-                  <button onClick={() => addMember(user.id)} className={styles.addBtn}>
-                    <UserPlus weight="bold" /> Add
+                  <button onClick={() => addMember(user.id)} className={styles.addBtn} aria-label={`Add ${user.first_name}`}>
+                    <UserPlus weight="bold" aria-hidden="true" /> Add
                   </button>
                 )}
               </li>

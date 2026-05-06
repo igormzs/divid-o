@@ -13,33 +13,35 @@ type Settlement = Tables<'settlements'> & { payer: any, payee: any };
 
 const db = createTypedClient();
 
+import { useAuth } from '@/context/AuthContext';
+
 export default function ActivityPage() {
+  const { user: authUser, isLoading: authLoading } = useAuth();
   const [activities, setActivities] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
   const loadActivity = useCallback(async () => {
+    if (!authUser) return;
     setIsLoading(true);
     try {
-      const { data: { user } } = await db.auth.getUser();
-      if (!user) return;
-
-      const { data: myMemberships } = await db.from('group_members').select('group_id').eq('user_id', user.id);
+      const { data: myMemberships } = await db.from('group_members').select('group_id').eq('user_id', authUser.id);
       const groupIds = (myMemberships ?? []).map(r => r.group_id);
       if (groupIds.length === 0) { setActivities([]); return; }
 
-      // Fetch expenses
-      const { data: expenses } = await db
-        .from('expenses')
-        .select('*, profiles:users!expenses_paid_by_fkey(first_name, last_name)')
-        .in('group_id', groupIds)
-        .order('created_at', { ascending: false });
+      // Fetch expenses and settlements in parallel
+      const [expensesRes, settlementsRes] = await Promise.all([
+        db.from('expenses')
+          .select('*, profiles:users!expenses_paid_by_fkey(first_name, last_name)')
+          .in('group_id', groupIds)
+          .order('created_at', { ascending: false }),
+        db.from('settlements')
+          .select('*, payer:users!settlements_paid_by_fkey(first_name, last_name), payee:users!settlements_paid_to_fkey(first_name, last_name)')
+          .in('group_id', groupIds)
+          .order('created_at', { ascending: false })
+      ]);
 
-      // Fetch settlements
-      const { data: settlements } = await db
-        .from('settlements')
-        .select('*, payer:users!settlements_paid_by_fkey(first_name, last_name), payee:users!settlements_paid_to_fkey(first_name, last_name)')
-        .in('group_id', groupIds)
-        .order('created_at', { ascending: false });
+      const expenses = expensesRes.data ?? [];
+      const settlements = settlementsRes.data ?? [];
 
       const activityItems = [
         ...(expenses ?? []).map(e => ({
@@ -73,37 +75,48 @@ export default function ActivityPage() {
   return (
     <div className={styles.container}>
       <header className={styles.header}>
-        <h1>Recent activity</h1>
+        <h1>Activity</h1>
       </header>
 
       <div className={styles.activityList}>
-        {isLoading && <p style={{ padding: '20px', opacity: 0.6 }}>Loading activity…</p>}
-        {!isLoading && activities.length === 0 && (
+        {isLoading ? (
+          Array.from({ length: 3 }).map((_, i) => (
+            <div key={i} className={styles.activityItem}>
+              <div className={`${styles.iconBox} skeleton`} />
+              <div className={styles.content} style={{ flex: 1 }}>
+                <div className="skeleton" style={{ height: '16px', width: '80%', marginBottom: '8px' }} />
+                <div className="skeleton" style={{ height: '14px', width: '40%', marginBottom: '8px' }} />
+                <div className="skeleton" style={{ height: '12px', width: '20%' }} />
+              </div>
+            </div>
+          ))
+        ) : activities.length === 0 ? (
           <div className={styles.emptyState}>
             <Bell size={64} weight="thin" style={{ opacity: 0.3, marginBottom: '16px' }} />
             <p>You have no activity yet.</p>
           </div>
+        ) : (
+          activities.map((item) => (
+            <div key={`${item.type}-${item.id}`} className={styles.activityItem}>
+              <div className={styles.iconBox}>
+                {item.type === 'expense' ? <Receipt className={styles.expenseIcon} /> : <Handshake className={styles.settlementIcon} />}
+              </div>
+              <div className={styles.content}>
+                <p className={styles.description}>
+                  {item.type === 'expense' ? (
+                    <><b>{item.user}</b> added "<b>{item.description}</b>"</>
+                  ) : (
+                    <><b>{item.from}</b> paid <b>{item.to}</b></>
+                  )}
+                </p>
+                <p className={`${styles.details} ${item.type === 'expense' ? 'text-negative' : 'text-positive'}`}>
+                  {item.type === 'expense' ? `you owe $${item.amount.toFixed(2)}` : `you received $${item.amount.toFixed(2)}`}
+                </p>
+                <p className={styles.date}>{formatDistanceToNow(item.date)} ago</p>
+              </div>
+            </div>
+          ))
         )}
-        {activities.map((item) => (
-          <div key={`${item.type}-${item.id}`} className={styles.activityItem}>
-            <div className={styles.iconBox}>
-              {item.type === 'expense' ? <Receipt className={styles.expenseIcon} /> : <Handshake className={styles.settlementIcon} />}
-            </div>
-            <div className={styles.content}>
-              <p className={styles.description}>
-                {item.type === 'expense' ? (
-                  <><b>{item.user}</b> added "<b>{item.description}</b>"</>
-                ) : (
-                  <><b>{item.from}</b> paid <b>{item.to}</b></>
-                )}
-              </p>
-              <p className={`${styles.details} ${item.type === 'expense' ? 'text-negative' : 'text-positive'}`}>
-                {item.type === 'expense' ? `you owe $${item.amount.toFixed(2)}` : `you received $${item.amount.toFixed(2)}`}
-              </p>
-              <p className={styles.date}>{formatDistanceToNow(item.date)} ago</p>
-            </div>
-          </div>
-        ))}
       </div>
     </div>
   );

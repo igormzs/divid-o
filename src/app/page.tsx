@@ -31,36 +31,49 @@ function getInitials(first: string | null, last: string | null): string {
 
 const db = createTypedClient();
 
+import { useAuth } from '@/context/AuthContext';
+
 export default function FriendsPage() {
+  const { user: authUser, isLoading: authLoading } = useAuth();
   const [friends, setFriends] = useState<FriendWithBalance[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [authUser, setAuthUser] = useState<any>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [showAddFriend, setShowAddFriend] = useState(false);
 
   const loadFriends = useCallback(async () => {
+    if (!authUser) return;
     setIsLoading(true);
     try {
-      const { data: { user } } = await db.auth.getUser();
-      if (!user) {
-        window.location.href = '/auth/login';
-        return;
-      }
-      setAuthUser(user);
 
-      const { data: myMemberships } = await db.from('group_members').select('group_id').eq('user_id', user.id);
+      const { data: myMemberships } = await db.from('group_members').select('group_id').eq('user_id', authUser.id);
       const groupIds = ((myMemberships ?? []) as GroupMemberRow[]).map(r => r.group_id);
       if (groupIds.length === 0) { setFriends([]); return; }
 
-      const { data: coMembers } = await db.from('group_members').select('user_id').in('group_id', groupIds).neq('user_id', user.id);
-      const coMemberIds = [...new Set(((coMembers ?? []) as GroupMemberRow[]).map(r => r.user_id))];
-      if (coMemberIds.length === 0) { setFriends([]); return; }
+      // Parallelize data fetching to eliminate waterfalls
+      const [coMembersRes, expensesRes, settlementsRes] = await Promise.all([
+        db.from('group_members')
+          .select('user_id, users(*)')
+          .in('group_id', groupIds)
+          .neq('user_id', authUser.id),
+        db.from('expenses')
+          .select('*, expense_splits(*)')
+          .in('group_id', groupIds),
+        db.from('settlements')
+          .select('*')
+          .in('group_id', groupIds)
+          .eq('status', 'completed')
+      ]);
 
-      const { data: profiles } = await db.from('users').select('*').in('id', coMemberIds);
-      const { data: rawExpenses } = await db.from('expenses').select('*, expense_splits(*)').in('group_id', groupIds);
-      const expenses = (rawExpenses ?? []) as (ExpenseRow & { expense_splits: any[] })[];
+      const coMembers = coMembersRes.data ?? [];
+      const expenses = (expensesRes.data ?? []) as (ExpenseRow & { expense_splits: any[] })[];
+      const settlements = (settlementsRes.data ?? []) as SettlementRow[];
 
-      const { data: settlements } = await db.from('settlements').select('*').in('group_id', groupIds).eq('status', 'completed');
+      // Unique profiles from co-members
+      const profilesMap = new Map<string, UserRow>();
+      coMembers.forEach((m: any) => {
+        if (m.users) profilesMap.set(m.user_id, m.users as UserRow);
+      });
+      const profiles = Array.from(profilesMap.values());
 
       const friendsWithBalance: FriendWithBalance[] = ((profiles ?? []) as UserRow[]).map(profile => {
         let owedToMe = 0;
@@ -68,21 +81,21 @@ export default function FriendsPage() {
 
         for (const expense of expenses) {
           const splits = expense.expense_splits ?? [];
-          if (expense.paid_by === user.id) {
+          if (expense.paid_by === authUser.id) {
             const theirSplit = splits.find(s => s.user_id === profile.id);
             if (theirSplit) owedToMe += Number(theirSplit.amount_owed);
           } else if (expense.paid_by === profile.id) {
-            const mySplit = splits.find(s => s.user_id === user.id);
+            const mySplit = splits.find(s => s.user_id === authUser.id);
             if (mySplit) iOwe += Number(mySplit.amount_owed);
           }
         }
 
         for (const s of (settlements ?? []) as SettlementRow[]) {
-          if (s.paid_by === user.id && s.paid_to === profile.id) iOwe -= Number(s.amount);
-          if (s.paid_by === profile.id && s.paid_to === user.id) owedToMe -= Number(s.amount);
+          if (s.paid_by === authUser.id && s.paid_to === profile.id) iOwe -= Number(s.amount);
+          if (s.paid_by === profile.id && s.paid_to === authUser.id) owedToMe -= Number(s.amount);
         }
 
-        const balance = toDollars(toCents(owedToMe) - toCents(iOwe));
+        const balance = toDollars(owedToMe - iOwe);
 
         return {
           id: profile.id,
@@ -122,9 +135,10 @@ export default function FriendsPage() {
           </button>
         </div>
         <div className={styles.searchBar}>
-          <MagnifyingGlass className={styles.searchIcon} />
+          <MagnifyingGlass className={styles.searchIcon} aria-hidden="true" />
           <input 
             placeholder="Search friends..." 
+            aria-label="Search friends"
             value={searchQuery}
             onChange={e => setSearchQuery(e.target.value)}
           />
@@ -138,11 +152,21 @@ export default function FriendsPage() {
             {totalBalance > 0 ? '+' : totalBalance < 0 ? '-' : ''}${Math.abs(totalBalance).toFixed(2)}
           </h2>
         </div>
-        <button className={styles.filterBtn}><FunnelSimple weight="bold" /></button>
+        <button className={styles.filterBtn} aria-label="Filter friends"><FunnelSimple weight="bold" aria-hidden="true" /></button>
       </div>
 
       <div className={styles.friendsList}>
-        {isLoading ? <p style={{ padding: '24px', opacity: 0.6 }}>Loading…</p> : 
+        {isLoading ? (
+          Array.from({ length: 3 }).map((_, i) => (
+            <div key={i} className={styles.friendItem}>
+              <div className={`${styles.friendAvatar} skeleton`} />
+              <div className={styles.friendDetails} style={{ flex: 1 }}>
+                <div className="skeleton" style={{ height: '18px', width: '60%', marginBottom: '8px' }} />
+                <div className="skeleton" style={{ height: '14px', width: '40%' }} />
+              </div>
+            </div>
+          ))
+        ) : 
          filtered.length === 0 ? (
            <div className={styles.emptyState}>
              <p>No friends found.</p>
@@ -175,10 +199,15 @@ export default function FriendsPage() {
 
       {showAddFriend && (
         <div className={styles.modalOverlay}>
-          <div className={styles.modal}>
+          <div 
+            className={styles.modal}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="add-friend-title"
+          >
             <div className={styles.modalHeader}>
-              <h2>Add Friend</h2>
-              <button onClick={() => setShowAddFriend(false)} className={styles.closeBtn}><X size={20} /></button>
+              <h2 id="add-friend-title">Add Friend</h2>
+              <button onClick={() => setShowAddFriend(false)} className={styles.closeBtn} aria-label="Close"><X size={20} aria-hidden="true" /></button>
             </div>
             <p style={{ fontSize: '14px', color: 'var(--text-muted)', marginBottom: '16px' }}>
               Friends are people you share groups with. Add them to a group to start splitting!

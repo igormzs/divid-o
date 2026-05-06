@@ -25,7 +25,7 @@
   width: 100%;
   padding: 10px 10px 10px 36px;
   background: white;
-  border: 1px solid var(--border-light);
+  border: 2px solid var(--surface-variant);
   border-radius: 8px;
   color: var(--text-primary);
   font-size: 14px;
@@ -51,7 +51,7 @@
 .searchBtn {
   padding: 0 16px;
   background: #f1f5f9;
-  border: 1px solid var(--border-light);
+  border: 1px solid var(--surface-variant);
   border-radius: 8px;
   color: var(--text-primary);
   font-weight: 600;
@@ -80,7 +80,7 @@
   justify-content: space-between;
   padding: 12px;
   background: white;
-  border: 1px solid var(--border-light);
+  border: 1px solid var(--surface-variant);
   border-radius: 8px;
 }
 

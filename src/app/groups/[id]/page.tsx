@@ -8,7 +8,8 @@ import {
   DotsThreeVertical, 
   Users, 
   Handshake,
-  ArrowRight
+  ArrowRight,
+  X
 } from '@phosphor-icons/react';
 import styles from './page.module.css';
 import { createTypedClient } from '@/utils/supabase/client';
@@ -25,31 +26,29 @@ type UserRow = Tables<'users'>;
 type ExpenseRow = Tables<'expenses'> & { expense_splits: { user_id: string; amount_owed: number }[] };
 type SettlementRow = Tables<'settlements'>;
 
+import { useAuth } from '@/context/AuthContext';
+
 export default function GroupDetailPage() {
   const params = useParams();
   const groupId = params.id as string;
   const router = useRouter();
   const db = createTypedClient();
+  const { user: authUser, isLoading: authLoading } = useAuth();
 
   const [group, setGroup] = useState<GroupRow | null>(null);
   const [members, setMembers] = useState<UserRow[]>([]);
   const [expenses, setExpenses] = useState<ExpenseRow[]>([]);
   const [settlements, setSettlements] = useState<SettlementRow[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [authUser, setAuthUser] = useState<any>(null);
   
   const [viewingExpenseId, setViewingExpenseId] = useState<string | undefined>(undefined);
   const [editingExpenseId, setEditingExpenseId] = useState<string | undefined>(undefined);
+  const [showMembersModal, setShowMembersModal] = useState(false);
 
   const loadAll = useCallback(async () => {
+    if (!authUser) return;
     setIsLoading(true);
     try {
-      const { data: { user } } = await db.auth.getUser();
-      if (!user) {
-        setIsLoading(false);
-        return;
-      }
-      setAuthUser(user);
 
       // Run all primary data fetches in parallel for better performance
       const [groupRes, membersRes, expensesRes, settlementsRes] = await Promise.all([
@@ -153,12 +152,12 @@ export default function GroupDetailPage() {
   return (
     <div className={styles.container}>
       <header className={styles.header}>
-        <button onClick={() => router.back()} className={styles.backBtn}><CaretLeft /></button>
+        <button onClick={() => router.back()} className={styles.backBtn} aria-label="Go back"><CaretLeft aria-hidden="true" /></button>
         <div className={styles.headerInfo}>
           <h1>{group.name}</h1>
           <p>{members.length} members</p>
         </div>
-        <button className={styles.menuBtn} onClick={openAddExpense}><Plus weight="bold" /></button>
+        <button className={styles.menuBtn} onClick={openAddExpense} aria-label="Add expense"><Plus weight="bold" aria-hidden="true" /></button>
       </header>
 
       <div className={styles.dashboard}>
@@ -167,7 +166,22 @@ export default function GroupDetailPage() {
             <div className={styles.iconBox}><Users size={18} /></div>
             <h2>Members</h2>
           </div>
-          <MemberSearch groupId={groupId} onMemberAdded={loadAll} existingMemberIds={members.map(m => m.id)} />
+          <div className={styles.membersList}>
+            {members.slice(0, 5).map(m => (
+              <div key={m.id} className={styles.memberAvatar}>
+                {m.avatar_url ? <img src={m.avatar_url} alt={m.first_name || 'Member'} /> : (m.first_name?.[0]?.toUpperCase() || '?')}
+              </div>
+            ))}
+            {members.length > 5 ? (
+              <button className={`unstyled-btn ${styles.seeAllBtn}`} onClick={() => setShowMembersModal(true)}>
+                +{members.length - 5}
+              </button>
+            ) : (
+              <button className={`unstyled-btn ${styles.seeAllBtn}`} onClick={() => setShowMembersModal(true)} aria-label="Manage members">
+                <Plus weight="bold" />
+              </button>
+            )}
+          </div>
         </section>
 
         <section>
@@ -210,7 +224,12 @@ export default function GroupDetailPage() {
                 const payer = members.find(m => m.id === exp.paid_by);
                 const mySplit = exp.expense_splits.find(s => s.user_id === authUser?.id);
                 return (
-                  <div key={exp.id} className={styles.expenseItem} onClick={() => setViewingExpenseId(exp.id)}>
+                  <button 
+                    key={exp.id} 
+                    type="button"
+                    className={`unstyled-btn ${styles.expenseItem}`} 
+                    onClick={() => setViewingExpenseId(exp.id)}
+                  >
                     <div className={styles.expenseDate}>
                       <span className={styles.month}>{new Date(exp.created_at || '').toLocaleString('default', { month: 'short' })}</span>
                       <span className={styles.day}>{new Date(exp.created_at || '').getDate()}</span>
@@ -230,7 +249,7 @@ export default function GroupDetailPage() {
                         }
                       </span>
                     </div>
-                  </div>
+                  </button>
                 );
               })
             )}
@@ -254,6 +273,41 @@ export default function GroupDetailPage() {
           onClose={() => setEditingExpenseId(undefined)}
           onSuccess={loadAll}
         />
+      )}
+
+      {showMembersModal && (
+        <div className={styles.modalOverlay} role="presentation" onClick={(e) => e.target === e.currentTarget && setShowMembersModal(false)}>
+          <div className={styles.modal} role="dialog" aria-modal="true" aria-labelledby="manage-members-title">
+            <header className={styles.modalHeader}>
+              <h2 id="manage-members-title">Manage Members</h2>
+              <button className={`unstyled-btn ${styles.closeBtn}`} onClick={() => setShowMembersModal(false)} aria-label="Close">
+                <X size={20} weight="bold" aria-hidden="true" />
+              </button>
+            </header>
+
+            <div className={styles.existingMembersList}>
+              <h3 style={{ fontSize: '12px', textTransform: 'uppercase', color: 'var(--text-muted)', marginBottom: '16px', letterSpacing: '0.05em' }}>Current Members ({members.length})</h3>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', marginBottom: '24px' }}>
+                {members.map(m => (
+                  <div key={m.id} style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                    <div className={styles.memberAvatar} style={{ width: '40px', height: '40px', fontSize: '14px' }}>
+                      {m.avatar_url ? <img src={m.avatar_url} alt="" /> : (m.first_name?.[0]?.toUpperCase() || '?')}
+                    </div>
+                    <div style={{ flex: 1 }}>
+                      <p style={{ fontWeight: 700, fontSize: '14px' }}>{m.first_name} {m.last_name}</p>
+                      <p style={{ fontSize: '12px', color: 'var(--text-muted)' }}>{m.email}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div style={{ marginTop: '8px' }}>
+              <h3 style={{ fontSize: '12px', textTransform: 'uppercase', color: 'var(--text-muted)', marginBottom: '16px', letterSpacing: '0.05em' }}>Add New Member</h3>
+              <MemberSearch groupId={groupId} onMemberAdded={loadAll} existingMemberIds={members.map(m => m.id)} />
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

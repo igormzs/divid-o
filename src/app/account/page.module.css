@@ -1,32 +1,44 @@
 .container {
   max-width: 600px;
   margin: 0 auto;
-  padding: 24px 16px 100px;
+  padding: 16px 16px 60px;
 }
 
 .profileHeader {
   display: flex;
+  flex-direction: row;
+  align-items: flex-start;
+  gap: 20px;
+  margin-bottom: 24px;
+}
+
+.profileInfo {
+  display: flex;
   flex-direction: column;
-  align-items: center;
-  margin-bottom: 40px;
-  text-align: center;
+  padding-top: 12px;
+  text-align: left;
+}
+
+.avatarWrapper {
+  position: relative;
+  margin-bottom: 0;
 }
 
 .avatar {
   width: 80px;
   height: 80px;
-  border-radius: 50%;
-  background: #f1f5f9;
+  border-radius: 40px;
+  background: var(--surface-light);
   display: flex;
   align-items: center;
   justify-content: center;
   font-size: 28px;
   font-weight: 800;
   color: var(--text-secondary);
-  margin-bottom: 16px;
-  overflow: hidden;
-  border: 4px solid white;
+  border: 3px solid white;
   box-shadow: var(--shadow-subtle);
+  overflow: hidden;
+  position: relative;
 }
 
 .avatar img {
@@ -36,10 +48,10 @@
 }
 
 .name {
-  font-size: 20px;
+  font-size: 18px;
   font-weight: 800;
   color: var(--text-primary);
-  margin-bottom: 4px;
+  margin-bottom: 2px;
 }
 
 .email {
@@ -49,17 +61,24 @@
 }
 
 .section {
-  margin-bottom: 32px;
+  margin-bottom: 16px;
 }
 
 .sectionTitle {
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 700;
   color: var(--text-muted);
   text-transform: uppercase;
   letter-spacing: 0.05em;
-  margin-bottom: 12px;
+  margin-bottom: 8px;
   padding-left: 12px;
+}
+
+.formCard {
+  background: white;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border-light);
+  padding: 20px;
 }
 
 .menuList {
@@ -114,18 +133,243 @@
 .logoutBtn {
   width: 100%;
   padding: 16px;
-  background: white;
-  border: 1px solid var(--border-light);
-  color: var(--danger);
+  background: #fff1f2;
+  border: 1px solid #fecdd3;
+  color: #e11d48;
   font-weight: 700;
-  font-size: 15px;
+  font-size: 16px;
   border-radius: var(--radius-md);
   cursor: pointer;
-  margin-top: 16px;
+  margin-top: 24px;
   transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
 }
 
 .logoutBtn:hover {
-  background: #fff5f5;
-  border-color: #fee2e2;
+  background: #e11d48;
+  color: white;
+  border-color: #e11d48;
+  box-shadow: 0 4px 12px rgba(225, 29, 72, 0.2);
 }
+
+/* Form Styles */
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.formCard {
+  background: white;
+  border-radius: 24px;
+  border: 1px solid var(--border-light);
+  padding: 16px 20px;
+}
+
+.inputGroup {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  flex: 1;
+}
+
+.label {
+  font-size: 13px;
+  font-weight: 800;
+  color: var(--primary);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  padding-left: 2px;
+}
+
+.input, .select {
+  padding: 14px 18px;
+  background: white;
+  border: 1.5px solid #e2e8f0;
+  border-radius: 16px;
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--text-primary);
+  outline: none;
+  transition: all 0.2s;
+  width: 100%;
+}
+
+.input:focus, .select:focus {
+  background: white;
+  border-color: var(--primary);
+  box-shadow: 0 0 0 4px rgba(12, 101, 180, 0.1);
+}
+
+.nameRow {
+  display: flex;
+  gap: 16px;
+}
+
+.usernameWrapper {
+  display: flex;
+  align-items: center;
+  background: white;
+  border: 1.5px solid #e2e8f0;
+  border-radius: 16px;
+  transition: all 0.2s;
+}
+
+.usernameWrapper:focus-within {
+  background: white;
+  border-color: var(--primary);
+  box-shadow: 0 0 0 4px rgba(12, 101, 180, 0.1);
+}
+
+.atSymbol {
+  padding-left: 18px;
+  font-weight: 700;
+  color: var(--text-muted);
+}
+
+.inputWithPrefix {
+  flex: 1;
+  padding: 14px 18px 14px 4px;
+  background: none;
+  border: none;
+  outline: none;
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+/* Avatar Trigger Styles */
+
+
+.avatarBtn {
+  position: relative;
+  cursor: pointer;
+}
+
+
+
+.avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.avatarOverlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(0,0,0,0.3);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  opacity: 0;
+  transition: opacity 0.2s;
+}
+
+.avatarBtn:hover .avatarOverlay {
+  opacity: 1;
+}
+
+.avatarActions {
+  position: absolute;
+  bottom: 0;
+  right: 0;
+}
+
+.miniPhotoBtn {
+  width: 36px;
+  height: 36px;
+  border-radius: 18px;
+  background: var(--primary);
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 3px solid white;
+  box-shadow: var(--shadow-sm);
+  cursor: pointer;
+  transition: transform 0.2s;
+}
+
+.miniPhotoBtn:hover {
+  transform: scale(1.1);
+}
+
+/* Camera & Photo */
+.cameraContainer {
+  position: relative;
+  width: 100%;
+  max-width: 300px;
+  margin: 0 auto;
+  aspect-ratio: 1;
+  background: #000;
+  border-radius: 24px;
+  overflow: hidden;
+}
+
+.cameraFeed {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.captureBtn {
+  position: absolute;
+  bottom: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 64px;
+  height: 64px;
+  border-radius: 32px;
+  background: white;
+  border: 4px solid rgba(0,0,0,0.1);
+  box-shadow: var(--shadow-lg);
+  cursor: pointer;
+}
+
+.closeCameraBtn {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  background: rgba(0,0,0,0.5);
+  color: white;
+  width: 32px;
+  height: 32px;
+  border-radius: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+
+.saveChangesBtn {
+  width: 100%;
+  padding: 18px;
+  background: var(--primary);
+  color: white;
+  font-weight: 800;
+  font-size: 16px;
+  border-radius: 20px;
+  box-shadow: 0 12px 32px rgba(12, 101, 180, 0.25);
+  margin-top: 20px;
+  cursor: pointer;
+  border: none;
+}
+
+.saveChangesBtn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.select {
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' fill='%230C65B4' viewBox='0 0 256 256'%3E%3Cpath d='M213.66,101.66l-80,80a8,8,0,0,1-11.32,0l-80-80a8,8,0,0,1,11.32-11.32L128,164.69l74.34-74.35a8,8,0,0,1,11.32,11.32Z'%3E%3C/path%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 16px center;
+  background-size: 16px;
+}
+
+

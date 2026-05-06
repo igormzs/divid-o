@@ -12,6 +12,7 @@
   "first_name": "string",
   "last_name": "string",
   "avatar_url": "string",
+  "preferred_currency": "string",
   "created_at": "timestamp"
 }
 ```

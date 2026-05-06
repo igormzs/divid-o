@@ -16,7 +16,7 @@ export default function BottomNav() {
     { label: 'Friends', href: '/', icon: <User weight={pathname === '/' ? 'fill' : 'regular'} /> },
     { label: 'Groups', href: '/groups', icon: <Users weight={pathname.startsWith('/groups') ? 'fill' : 'regular'} /> },
     { label: 'Activity', href: '/activity', icon: <Bell weight={pathname === '/activity' ? 'fill' : 'regular'} /> },
-    { label: 'Account', href: '/account', icon: <GearSix weight={pathname === '/account' ? 'fill' : 'regular'} /> },
+    { label: 'Settings', href: '/account', icon: <GearSix weight={pathname === '/account' ? 'fill' : 'regular'} /> },
   ];
 
   if (!mounted) return null;
@@ -30,8 +30,9 @@ export default function BottomNav() {
             className={styles.fab} 
             onClick={() => window.dispatchEvent(new CustomEvent('open-expense-modal'))}
             title="Add expense"
+            aria-label="Add expense"
           >
-            <Plus weight="bold" />
+            <Plus weight="bold" aria-hidden="true" />
           </button>
         </div>
       )}
