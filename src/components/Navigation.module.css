@@ -166,6 +166,12 @@
   z-index: 1001;
 }
 
+@media (min-width: 840px) {
+  .fabContainer {
+    right: calc(50% - 400px);
+  }
+}
+
 .fab {
   width: 64px;
   height: 64px;
@@ -194,6 +200,8 @@
   }
   .fabContainer {
     bottom: 120px;
+    /* Reset right for mobile if needed, though 20px is default */
+    right: 24px; 
   }
 }
 @media (min-width: 1024px) {
